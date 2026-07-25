@@ -46,6 +46,8 @@ def update_stock(
     profil_id: str,
     ingredient_id: str,
     quantite_a_deduire: float,
+    *,
+    commit: bool = True,
 ) -> IngredientStock:
     """Déduit une quantité issue de RecetteIngredient.poids_requis — jamais une estimation."""
     if quantite_a_deduire < 0:
@@ -55,8 +57,11 @@ def update_stock(
     nouvelle_qte = max(0.0, ligne.quantite_disponible - quantite_a_deduire)
     ligne.quantite_disponible = nouvelle_qte
     ligne.stock.derniere_mise_a_jour = datetime.utcnow()
-    db.commit()
-    db.refresh(ligne)
+    if commit:
+        db.commit()
+        db.refresh(ligne)
+    else:
+        db.flush()
     return ligne
 
 
@@ -65,6 +70,8 @@ def recrediter_stock(
     profil_id: str,
     ingredient_id: str,
     quantite: float,
+    *,
+    commit: bool = True,
 ) -> IngredientStock:
     """Inverse de update_stock (annulation de validation de repas — RF-12)."""
     if quantite < 0:
@@ -73,8 +80,11 @@ def recrediter_stock(
     ligne = _get_ingredient_stock(db, profil_id, ingredient_id)
     ligne.quantite_disponible = ligne.quantite_disponible + quantite
     ligne.stock.derniere_mise_a_jour = datetime.utcnow()
-    db.commit()
-    db.refresh(ligne)
+    if commit:
+        db.commit()
+        db.refresh(ligne)
+    else:
+        db.flush()
     return ligne
 
 

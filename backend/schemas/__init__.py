@@ -1,6 +1,7 @@
 from backend.schemas.budget import BudgetCreate, BudgetOut, BudgetUpdate
 from backend.schemas.composites import (
     CheckBudgetResponse,
+    ListeCoursesItem,
     MarketMatchOut,
     RuptureOut,
     StockDeductionRequest,
@@ -108,4 +109,5 @@ __all__ = [
     "CheckBudgetResponse",
     "MarketMatchOut",
     "RuptureOut",
+    "ListeCoursesItem",
 ]

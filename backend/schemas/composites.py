@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -33,3 +33,10 @@ class RuptureOut(BaseModel):
     ingredient: IngredientOut
     quantite_manquante: float
     marches_suggeres: list[MarketMatchOut] = Field(default_factory=list)
+
+
+class ListeCoursesItem(BaseModel):
+    ingredient: IngredientOut
+    poids_total_requis: float
+    stock_disponible: float
+    statut: Literal["disponible", "à acheter"]
