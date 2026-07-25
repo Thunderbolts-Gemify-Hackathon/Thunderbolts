@@ -10,8 +10,10 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models.etat_du_jour import EtatDuJour
 from backend.models.foyer import Foyer
+from backend.schemas.gemma import ChatRequest, ChatResponse, RemedeResponse
 from backend.schemas.planning import PeriodePlanning, PlanningOut
 from backend.services import onboarding_suite, planning_generation_service
+from backend.services.gemma_agent import run_tool_loop
 from backend.services.gemma_client import GemmaClient
 from backend.services.prompts import build_system_prompt
 
@@ -33,8 +35,26 @@ def generer_planning(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-@router.post("/{profil_id}/suggestion-remede")
-def suggestion_remede(profil_id: str, db: Session = Depends(get_db)) -> dict[str, str]:
+@router.post("/{profil_id}/chat", response_model=ChatResponse)
+def chat(profil_id: str, payload: ChatRequest, db: Session = Depends(get_db)):
+    """Chat libre avec Gemma sur le profil (mêmes règles/outils que la génération de planning)."""
+    profil_complet = onboarding_suite.get_profil_complet(db, profil_id)
+
+    messages = [{"role": "system", "content": build_system_prompt(profil_complet)}]
+    messages += [{"role": m.role, "content": m.content} for m in payload.historique]
+    messages.append({"role": "user", "content": payload.message})
+
+    tool_calls: list[dict] = []
+    try:
+        reponse = run_tool_loop(db, GemmaClient(), messages, trace=tool_calls)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return ChatResponse(reponse=reponse, tool_calls=tool_calls)
+
+
+@router.post("/{profil_id}/suggestion-remede", response_model=RemedeResponse)
+def suggestion_remede(profil_id: str, db: Session = Depends(get_db)):
     """STRETCH : suggère un remède local simple si le foyer est 'un_peu_malade' (pas de tool calling)."""
     profil_complet = onboarding_suite.get_profil_complet(db, profil_id)
 

@@ -14,7 +14,12 @@ def get_planning(
 ) -> Planning | None:
     return (
         db.query(Planning)
-        .options(joinedload(Planning.repas).joinedload(RepasPlanifie.recette))
+        .options(
+            joinedload(Planning.repas)
+            .joinedload(RepasPlanifie.recette)
+            .joinedload(Recette.ingredients)
+            .joinedload(RecetteIngredient.ingredient)
+        )
         .filter(
             Planning.profil_id == profil_id,
             Planning.periode == periode,
@@ -51,8 +56,8 @@ def create_planning_from_ia(
         raise ValueError("Gemma n'a proposé aucun repas valide parmi les recettes candidates")
 
     db.commit()
-    db.refresh(planning)
-    return planning
+    # Recharge avec repas + recette + ingrédients eager-load pour la sérialisation JSON.
+    return get_planning(db, profil_id, periode, date_debut)
 
 
 def _repas_depuis_entree_ia(
