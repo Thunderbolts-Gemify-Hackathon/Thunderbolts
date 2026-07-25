@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -49,6 +49,16 @@ def _ajuster_stock(
     else:
         db.flush()
     return ligne
+
+
+def check_expiry(db: Session, profil_id: str, jours: int = 7) -> list[IngredientStock]:
+    """Liste les ingrédients du stock proches de la péremption."""
+    limite = date.today() + timedelta(days=jours)
+    return [
+        ligne
+        for ligne in get_stock_profil(db, profil_id)
+        if ligne.date_peremption is not None and ligne.date_peremption <= limite
+    ]
 
 
 def update_stock(
