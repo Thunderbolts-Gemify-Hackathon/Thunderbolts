@@ -68,3 +68,47 @@ RECETTES = {
         [("canard", 250, "g"), ("bredes mafana", 200, "g"), ("oignon", 50, "g"), ("ail", 8, "g"), ("riz", 200, "g"), ("huile", 15, "ml")],
     ),
 }
+
+RECETTE_INSTRUCTIONS = {
+    "ravitoto sy henakisoa": (
+        "Faire revenir l'oignon, ajouter les brèdes et l'arachide. "
+        "Mijoter, servir avec le riz."
+    ),
+    "romazava": (
+        "Faire revenir oignon et gingembre, ajouter le poulet puis les brèdes et tomates. "
+        "Mijoter et servir avec le riz."
+    ),
+    "poisson coco riz": (
+        "Faire revenir ail et oignon, ajouter le poisson et la tomate. "
+        "Assaisonner, servir avec le riz."
+    ),
+    "poulet coco": (
+        "Faire revenir oignon, ail et gingembre, saisir le poulet. "
+        "Mijoter puis servir avec le riz."
+    ),
+    "achard": "Couper finement oignon et tomate, assaisonner à l'huile, gingembre et sel.",
+    "varenga": (
+        "Effilocher le poulet cuit, le faire revenir avec oignon et ail. "
+        "Servir avec le riz."
+    ),
+    "hen'omby ritra": (
+        "Faire revenir oignon, ail et gingembre, ajouter le canard. "
+        "Mijoter longtemps, servir avec le riz."
+    ),
+    "voanjobory sy henakisoa": (
+        "Cuire les pois du cap, ajouter oignon, tomate et ail. "
+        "Mijoter et servir avec le riz."
+    ),
+    "lasopy": "Faire une soupe avec haricots, tomate, oignon, ail et gingembre.",
+    "kitoza oeufs riz": (
+        "Faire revenir le poulet avec l'oignon, accompagner de riz. "
+        "Idéal au petit-déjeuner."
+    ),
+    "salade pois chiches": (
+        "Mélanger pois chiches, tomate et oignon. Assaisonner à l'huile et au sel."
+    ),
+    "canard aux bredes": (
+        "Faire revenir oignon et ail, ajouter le canard puis les brèdes. "
+        "Mijoter et servir avec le riz."
+    ),
+}

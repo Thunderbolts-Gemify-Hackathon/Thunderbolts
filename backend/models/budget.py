@@ -20,5 +20,6 @@ class Budget(Base):
     montant: Mapped[float] = mapped_column(Float, nullable=False)
     periode: Mapped[str] = mapped_column(String(20), nullable=False)
     montant_restant: Mapped[float] = mapped_column(Float, nullable=False)
+    devise: Mapped[str] = mapped_column(String(10), nullable=False, default="Ar")
 
     preferences: Mapped["Preferences"] = relationship(back_populates="budget")

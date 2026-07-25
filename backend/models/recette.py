@@ -23,6 +23,7 @@ class Recette(Base):
     glucides: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     lipides: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     tags: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    instructions: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
 
     ingredients: Mapped[list["RecetteIngredient"]] = relationship(
         back_populates="recette", cascade="all, delete-orphan"

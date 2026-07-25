@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from backend.data.catalog import INGREDIENTS, RECETTES
+from backend.data.catalog import INGREDIENTS, RECETTE_INSTRUCTIONS, RECETTES
 from backend.data.seed_helpers import get_or_create
 from backend.models.ingredient import Ingredient
 from backend.models.recette import Recette, RecetteIngredient
@@ -22,7 +22,10 @@ def seed_food(db: Session) -> dict:
             glucides=gluc,
             lipides=lip,
             tags=tags,
+            instructions=RECETTE_INSTRUCTIONS.get(nom),
         )
+        if recette.instructions is None and nom in RECETTE_INSTRUCTIONS:
+            recette.instructions = RECETTE_INSTRUCTIONS[nom]
         if not recette.ingredients:
             for ing_nom, poids, unite in lignes:
                 db.add(
