@@ -8,7 +8,9 @@ from backend.database import Base
 
 if TYPE_CHECKING:
     from backend.models.foyer import Foyer
+    from backend.models.itineraire import Itineraire
     from backend.models.localisation import Localisation
+    from backend.models.planning import Planning
     from backend.models.preferences import Preferences
     from backend.models.stock import Stock
 
@@ -33,3 +35,5 @@ class Profil(Base):
         back_populates="profil", uselist=False
     )
     stock: Mapped[Optional["Stock"]] = relationship(back_populates="profil", uselist=False)
+    plannings: Mapped[list["Planning"]] = relationship(back_populates="profil")
+    itineraires: Mapped[list["Itineraire"]] = relationship(back_populates="profil")
