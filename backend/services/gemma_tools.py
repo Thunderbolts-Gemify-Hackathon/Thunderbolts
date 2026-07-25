@@ -13,7 +13,7 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 LOG_DIR = ROOT_DIR / "logs"
 LOG_FILE = LOG_DIR / "tool_calls.log"
 
-# Format JSON Schema / function calling (compatible OpenAI, Ollama, Gemini).
+# Format JSON Schema / function calling (compatible OpenAI, Ollama, Gemma4).
 TOOLS: list[dict[str, Any]] = [
     {
         "name": "check_budget",
