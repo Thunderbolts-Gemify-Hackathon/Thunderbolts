@@ -4,7 +4,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database import init_db
-from backend.routers import budget, gemma, market, onboarding, planning, stock, utilisateur
+from backend.routers import (
+    budget,
+    gemma,
+    ingredients,
+    market,
+    onboarding,
+    planning,
+    stock,
+    utilisateur,
+)
 
 
 @asynccontextmanager
@@ -34,6 +43,7 @@ app.add_middleware(
 # Routers = HTTP only. La logique métier est dans services/ (réutilisable hors API).
 app.include_router(onboarding.router)
 app.include_router(stock.router)
+app.include_router(ingredients.router)
 app.include_router(budget.router)
 app.include_router(market.router)
 app.include_router(planning.router)
