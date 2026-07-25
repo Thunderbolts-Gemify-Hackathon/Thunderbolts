@@ -1,0 +1,61 @@
+import { api } from "./http";
+
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type ChatResponse = {
+  reponse: string;
+  tool_calls: { name: string; arguments: Record<string, unknown>; result: unknown }[];
+};
+
+export type DirectiveCourses = {
+  ingredient_id: string;
+  ingredient_nom: string;
+  point_de_vente: string;
+  type_pdv: string;
+  prix: number;
+  devise: string;
+  distance_km: number | null;
+  niveau_securite: string | null;
+  mode_deplacement: string | null;
+  deprioritise: boolean;
+  phrase: string;
+};
+
+export type RemedeResponse = {
+  remede: string;
+};
+
+export function postChat(
+  profilId: string,
+  token: string,
+  message: string,
+  historique: ChatMessage[] = []
+) {
+  return api<ChatResponse>(`/ia/${profilId}/chat`, {
+    method: "POST",
+    token,
+    body: { message, historique },
+  });
+}
+
+export function postDirectiveCourses(
+  profilId: string,
+  token: string,
+  ingredientNom: string
+) {
+  return api<DirectiveCourses>(`/ia/${profilId}/directive-courses`, {
+    method: "POST",
+    token,
+    body: { ingredient_nom: ingredientNom },
+  });
+}
+
+export function postSuggestionRemede(profilId: string, token: string) {
+  return api<RemedeResponse>(`/ia/${profilId}/suggestion-remede`, {
+    method: "POST",
+    token,
+  });
+}
