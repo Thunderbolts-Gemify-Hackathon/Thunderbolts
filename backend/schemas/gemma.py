@@ -26,3 +26,7 @@ class ChatResponse(BaseModel):
 
 class RemedeResponse(BaseModel):
     remede: str
+    
+class ChatVocalResponse(BaseModel):
+    transcription: str
+    reponse: str

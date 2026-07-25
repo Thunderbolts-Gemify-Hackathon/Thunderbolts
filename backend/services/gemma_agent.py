@@ -74,3 +74,19 @@ def _loads_or_none(texte: str) -> Any | None:
         return json.loads(texte)
     except json.JSONDecodeError:
         return None
+
+def parse_json_object(contenu: str) -> dict[str, Any] | None:
+    """Extrait un objet JSON depuis une réponse (texte brut ou fence markdown)."""
+    texte = (contenu or "").strip()
+    fence = re.search(r"(?:json)?\s*([\s\S]*?)", texte)
+    if fence:
+        texte = fence.group(1).strip()
+
+    data = _loads_or_none(texte)
+    if data is None:
+        match = re.search(r"\{[\s\S]*\}", texte)
+        if not match:
+            return None
+        data = _loads_or_none(match.group(0))
+
+    return data if isinstance(data, dict) else None

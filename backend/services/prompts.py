@@ -61,6 +61,12 @@ CORRECTION_JSON = (
     f"tableau JSON de la forme {PLANNING_JSON_SHAPE}, sans texte ni markdown autour."
 )
 
+VOCAL_INSTRUCTION = (
+    "L'utilisateur t'envoie un message vocal en pièce jointe audio, en français. "
+    "Écoute-le, puis réponds UNIQUEMENT en JSON valide, sans markdown, de la forme : "
+    '{"transcription": "<ce que l\'utilisateur a dit>", "reponse": "<ta réponse orale, '
+    'naturelle et concise, comme si tu parlais à voix haute>"}.'
+)
 
 @dataclass(frozen=True)
 class PromptContext:
