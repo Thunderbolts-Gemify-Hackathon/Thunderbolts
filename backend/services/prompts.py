@@ -1,7 +1,10 @@
-"""Construction du prompt système pour l'assistant culinaire Sakafo AI."""
+"""Prompts système et utilisateur pour l'assistant culinaire Sakafo AI."""
 
 from __future__ import annotations
 
+import json
+from dataclasses import dataclass
+from datetime import date
 from typing import Any, TypeVar
 
 from pydantic import BaseModel
@@ -28,6 +31,11 @@ OBJECTIFS = {
     "prise_masse": "prise de masse",
 }
 
+PLANNING_JSON_SHAPE = (
+    '[{"jour": "AAAA-MM-JJ", "type_repas": "petit_dejeuner|dejeuner|diner", '
+    '"recette_id": "..."}]'
+)
+
 RULE_NO_HALLUCINATION = (
     "RÈGLE STRICTE — DONNÉES CHIFFRÉES : tu ne dois jamais halluciner un prix, un stock, "
     "une distance ou toute autre donnée chiffrée. Utilise systématiquement les outils "
@@ -48,6 +56,79 @@ OUTPUT_FORMAT = (
     "conversationnel, réponds en texte naturel en français."
 )
 
+CORRECTION_JSON = (
+    "Le format de ta réponse précédente est invalide. Corrige et renvoie UNIQUEMENT un "
+    f"tableau JSON de la forme {PLANNING_JSON_SHAPE}, sans texte ni markdown autour."
+)
+
+
+@dataclass(frozen=True)
+class PromptContext:
+    profil: ProfilOut
+    foyer: FoyerOut | None
+    preferences: PreferencesOut | None
+    budget: BudgetOut | None
+    localisation: LocalisationOut | None
+
+    @classmethod
+    def from_complet(cls, profil_complet: dict[str, Any]) -> PromptContext:
+        return cls(
+            profil=ProfilOut.model_validate(profil_complet["profil"]),
+            foyer=_parse_optional(FoyerOut, profil_complet.get("foyer")),
+            preferences=_parse_optional(PreferencesOut, profil_complet.get("preferences")),
+            budget=_parse_optional(BudgetOut, profil_complet.get("budget")),
+            localisation=_parse_optional(LocalisationOut, profil_complet.get("localisation")),
+        )
+
+
+def build_system_prompt(profil_complet: dict[str, Any]) -> str:
+    """Prompt système à partir du JSON GET /onboarding/{id}/complet."""
+    ctx = PromptContext.from_complet(profil_complet)
+    nombre = ctx.foyer.nombre_personnes if ctx.foyer else 1
+    return "\n\n".join(
+        [
+            (
+                f"Tu es l'assistant culinaire de Sakafo AI pour un foyer de {nombre} "
+                "personne(s) à Madagascar. Ton rôle est de proposer des repas équilibrés, "
+                "réalistes et adaptés aux ressources disponibles du foyer."
+            ),
+            _describe_profil(ctx.profil),
+            _describe_foyer(ctx.foyer),
+            _describe_preferences(ctx.preferences),
+            _describe_budget(ctx.budget),
+            _describe_localisation(ctx.localisation),
+            RULE_NO_HALLUCINATION,
+            RULE_FOOD_SAFETY,
+            OUTPUT_FORMAT,
+        ]
+    )
+
+
+def build_planning_user_prompt(
+    nb_jours: int,
+    date_debut: date,
+    candidats: list[dict[str, Any]],
+) -> str:
+    recettes_json = json.dumps(
+        [
+            {
+                "recette_id": r["id"],
+                "nom": r["nom"],
+                "tags": r["tags"],
+                "kcal_total": r["kcal_total"],
+            }
+            for r in candidats
+        ],
+        ensure_ascii=False,
+    )
+    return (
+        f"Génère un planning de repas pour {nb_jours} jours à partir du {date_debut.isoformat()}, "
+        "un repas par créneau (petit_dejeuner, dejeuner, diner) et par jour. "
+        f"Choisis UNIQUEMENT parmi ces recettes (n'invente jamais de recette_id) : {recettes_json}\n\n"
+        f"Réponds UNIQUEMENT avec un tableau JSON de la forme {PLANNING_JSON_SHAPE}, "
+        "sans texte ni markdown autour."
+    )
+
 
 def _parse_optional(model: type[ModelT], data: dict[str, Any] | None) -> ModelT | None:
     return model.model_validate(data) if data else None
@@ -59,11 +140,10 @@ def _join_or_aucun(valeurs: list[str]) -> str:
 
 def _describe_profil(profil: ProfilOut) -> str:
     objectif = OBJECTIFS.get(profil.objectif, profil.objectif)
-    niveau_activite = NIVEAUX_ACTIVITE.get(profil.niveau_activite, profil.niveau_activite)
-
+    niveau = NIVEAUX_ACTIVITE.get(profil.niveau_activite, profil.niveau_activite)
     lignes = [
         f"Profil principal : {profil.age} ans, objectif {objectif}, "
-        f"niveau d'activité {niveau_activite}."
+        f"niveau d'activité {niveau}."
     ]
     if profil.besoin_calorique:
         lignes.append(f"Besoin calorique estimé : {profil.besoin_calorique} kcal/jour.")
@@ -78,8 +158,8 @@ def _describe_foyer(foyer: FoyerOut | None) -> str:
 
     ligne = f"Foyer de {foyer.nombre_personnes} personne(s)."
     membres = ", ".join(
-        f"{membre.age_approx} ans" + ("" if membre.regime_aligne else " (régime différent)")
-        for membre in foyer.membres
+        f"{m.age_approx} ans" + ("" if m.regime_aligne else " (régime différent)")
+        for m in foyer.membres
     )
     return f"{ligne} Membres : {membres}." if membres else ligne
 
@@ -100,7 +180,7 @@ def _describe_preferences(preferences: PreferencesOut | None) -> str:
         lignes.append(f"Régime spécifique à respecter : {preferences.regime_specifique}.")
     if preferences.aliments_detestes:
         lignes.append(
-            f"Aliments à éviter par préférence (non médical) : "
+            "Aliments à éviter par préférence (non médical) : "
             f"{_join_or_aucun(preferences.aliments_detestes)}."
         )
     return "\n".join(lignes)
@@ -117,43 +197,13 @@ def _describe_localisation(localisation: LocalisationOut | None) -> str:
         return "Localisation : non renseignée."
 
     details = ", ".join(
-        detail
-        for detail in (
+        part
+        for part in (
             f"quartier {localisation.quartier}" if localisation.quartier else None,
             f"saison {localisation.saison}" if localisation.saison else None,
         )
-        if detail
+        if part
     )
-    return f"Localisation : {details}." if details else "Localisation : coordonnées connues, quartier non précisé."
-
-
-def build_system_prompt(profil_complet: dict[str, Any]) -> str:
-    """Construit le prompt système à partir du profil complet d'un utilisateur.
-
-    `profil_complet` est le JSON renvoyé par GET /onboarding/{id}/complet :
-    {"profil": {...}, "foyer": {...}, "preferences": {...}, "budget": {...}, "localisation": {...}}
-    Seul `profil` est obligatoire, les autres sections peuvent être absentes si
-    l'onboarding n'est pas terminé.
-    """
-    profil = ProfilOut.model_validate(profil_complet["profil"])
-    foyer = _parse_optional(FoyerOut, profil_complet.get("foyer"))
-    preferences = _parse_optional(PreferencesOut, profil_complet.get("preferences"))
-    budget = _parse_optional(BudgetOut, profil_complet.get("budget"))
-    localisation = _parse_optional(LocalisationOut, profil_complet.get("localisation"))
-
-    nombre_personnes = foyer.nombre_personnes if foyer else 1
-
-    sections = [
-        f"Tu es l'assistant culinaire de Sakafo AI pour un foyer de {nombre_personnes} "
-        "personne(s) à Madagascar. Ton rôle est de proposer des repas équilibrés, réalistes "
-        "et adaptés aux ressources disponibles du foyer.",
-        _describe_profil(profil),
-        _describe_foyer(foyer),
-        _describe_preferences(preferences),
-        _describe_budget(budget),
-        _describe_localisation(localisation),
-        RULE_NO_HALLUCINATION,
-        RULE_FOOD_SAFETY,
-        OUTPUT_FORMAT,
-    ]
-    return "\n\n".join(sections)
+    if details:
+        return f"Localisation : {details}."
+    return "Localisation : coordonnées connues, quartier non précisé."
