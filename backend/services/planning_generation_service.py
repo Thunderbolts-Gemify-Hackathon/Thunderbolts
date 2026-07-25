@@ -71,8 +71,11 @@ def _demander_planning_json(
     contenu = run_tool_loop(db, client, messages)
     repas_json = parse_json_list(contenu)
     if repas_json is None:
+        print(f"[planning] JSON invalide, 1er essai : {contenu[:500]!r}")
         messages.append({"role": "user", "content": CORRECTION_JSON})
-        repas_json = parse_json_list(run_tool_loop(db, client, messages))
+        contenu = run_tool_loop(db, client, messages)
+        repas_json = parse_json_list(contenu)
     if repas_json is None:
+        print(f"[planning] JSON invalide après retry : {contenu[:500]!r}")
         raise ValueError("Gemma n'a pas produit de planning JSON valide après retry")
     return repas_json
