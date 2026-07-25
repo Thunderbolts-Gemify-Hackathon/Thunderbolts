@@ -11,3 +11,4 @@ build/
 *.pdf
 *.md
 !README.md
+logs/*.log
