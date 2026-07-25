@@ -2,20 +2,12 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 Saison = Literal["ete_humide", "hiver_sec", "intersaison"]
 
 
 class LocalisationCreate(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
-    quartier: Optional[str] = None
-    saison: Optional[Saison] = None
-
-
-class LocalisationUpdate(BaseModel):
-    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
-    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     quartier: Optional[str] = None
     saison: Optional[Saison] = None
 

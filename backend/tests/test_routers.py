@@ -142,7 +142,7 @@ def test_routers_stock_budget_market_planning(client, db_session):
     assert r.json()["statut"] == "consomme"
 
     r = client.get(f"/stock/{profil.id}")
-    assert r.json()[0]["quantite_disponible"] == 300.0  # 450 - 150
+    assert r.json()[0]["quantite_disponible"] == 300.0
 
     r = client.post(f"/planning/{repas.id}/annuler")
     assert r.status_code == 200

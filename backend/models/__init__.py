@@ -10,23 +10,3 @@ from backend.models.preferences import Preferences
 from backend.models.profil import Profil
 from backend.models.recette import Recette, RecetteIngredient
 from backend.models.stock import IngredientStock, Stock
-
-__all__ = [
-    "Profil",
-    "Foyer",
-    "MembreFoyer",
-    "Preferences",
-    "Budget",
-    "Localisation",
-    "EtatDuJour",
-    "Ingredient",
-    "Stock",
-    "IngredientStock",
-    "Recette",
-    "RecetteIngredient",
-    "Planning",
-    "RepasPlanifie",
-    "PointDeVente",
-    "Offre",
-    "Itineraire",
-]

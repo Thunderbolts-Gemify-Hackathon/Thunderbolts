@@ -1,8 +1,7 @@
 from datetime import date
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
-
 
 TypeEtatDuJour = Literal["fatigue", "stresse", "en_forme", "un_peu_malade", "normal"]
 
@@ -10,11 +9,6 @@ TypeEtatDuJour = Literal["fatigue", "stresse", "en_forme", "un_peu_malade", "nor
 class EtatDuJourCreate(BaseModel):
     date: date
     type: TypeEtatDuJour
-
-
-class EtatDuJourUpdate(BaseModel):
-    date: Optional[date] = None
-    type: Optional[TypeEtatDuJour] = None
 
 
 class EtatDuJourOut(BaseModel):

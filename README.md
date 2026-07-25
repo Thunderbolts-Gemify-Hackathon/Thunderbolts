@@ -1,6 +1,6 @@
 # KaliTao
 
-Backend FastAPI pour Sakafo AI (hackathon Gemmify).
+Backend FastAPI pour KaliTao (hackathon Gemmify).
 
 ## Stack
 
@@ -19,4 +19,4 @@ uvicorn backend.main:app --reload
 
 ## Architecture
 
-`routers/` → `services/` → `models/` + `schemas/`
+`routers/` appelle `services/`, qui utilise `models/` et `schemas/`.

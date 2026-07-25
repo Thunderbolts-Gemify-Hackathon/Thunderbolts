@@ -11,7 +11,7 @@ from backend.services import planning_service
 router = APIRouter(prefix="/planning", tags=["planning"])
 
 
-@router.get("/{profil_id}", response_model=PlanningOut | None)
+@router.get("/{profil_id}", response_model=PlanningOut)
 def get_planning(
     profil_id: str,
     periode: PeriodePlanning = Query("semaine"),

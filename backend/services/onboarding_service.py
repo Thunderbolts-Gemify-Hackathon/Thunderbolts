@@ -12,7 +12,7 @@ from backend.schemas.etat_du_jour import EtatDuJourCreate
 from backend.schemas.foyer import FoyerCreate
 from backend.schemas.localisation import LocalisationCreate
 from backend.schemas.preferences import PreferencesCreate
-from backend.schemas.profil import ProfilCreate
+from backend.schemas.profil import ProfilCreate, ProfilOut
 
 FACTEUR_ACTIVITE = {
     "sedentaire": 1.2,
@@ -37,7 +37,6 @@ def calculer_besoin_calorique(
     taille_cm: float,
     niveau_activite: str,
 ) -> float:
-    """Mifflin-St Jeor pondérée par le niveau d'activité."""
     if sexe.lower() in {"homme", "male", "m", "h"}:
         bmr = 10 * poids + 6.25 * taille_cm - 5 * age + 5
     else:
@@ -68,25 +67,13 @@ def get_profil(db: Session, profil_id: str) -> Profil:
     return _profil_or_404(db, profil_id)
 
 
-def enrich_profil_out(profil: Profil) -> dict:
-    return {
-        "id": profil.id,
-        "age": profil.age,
-        "sexe": profil.sexe,
-        "poids": profil.poids,
-        "taille": profil.taille,
-        "niveau_activite": profil.niveau_activite,
-        "objectif": profil.objectif,
-        "condition_sante": profil.condition_sante,
-        "imc": calculer_imc(profil.poids, profil.taille),
-        "besoin_calorique": calculer_besoin_calorique(
-            profil.age,
-            profil.sexe,
-            profil.poids,
-            profil.taille,
-            profil.niveau_activite,
-        ),
-    }
+def enrich_profil_out(profil: Profil) -> ProfilOut:
+    out = ProfilOut.model_validate(profil)
+    out.imc = calculer_imc(profil.poids, profil.taille)
+    out.besoin_calorique = calculer_besoin_calorique(
+        profil.age, profil.sexe, profil.poids, profil.taille, profil.niveau_activite
+    )
+    return out
 
 
 def create_foyer(db: Session, profil_id: str, data: FoyerCreate) -> Foyer:
@@ -141,7 +128,7 @@ def create_budget(db: Session, profil_id: str, data: BudgetCreate) -> Budget:
     if not preferences:
         raise HTTPException(
             status_code=404,
-            detail="Préférences introuvables — créez-les avant le budget",
+            detail="Préférences introuvables: créez-les avant le budget",
         )
     if db.query(Budget).filter(Budget.preferences_id == preferences.id).first():
         raise HTTPException(status_code=409, detail="Un budget existe déjà pour ce profil")

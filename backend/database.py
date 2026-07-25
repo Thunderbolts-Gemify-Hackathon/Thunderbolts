@@ -1,32 +1,22 @@
 import os
 from pathlib import Path
 
-try:
-    from dotenv import load_dotenv
-except ImportError:  # pragma: no cover
-    load_dotenv = None
-
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
-
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 BACKEND_DIR = Path(__file__).resolve().parent
 
-if load_dotenv:
-    load_dotenv(ROOT_DIR / ".env")
+load_dotenv(ROOT_DIR / ".env")
 
 
 def build_database_url() -> str:
-    direct_url = os.getenv("DATABASE_URL")
-    if direct_url:
-        return direct_url
-    db_path = BACKEND_DIR / "sakafo.db"
-    return f"sqlite:///{db_path}"
+    return os.getenv("DATABASE_URL") or f"sqlite:///{BACKEND_DIR / 'kalitao.db'}"
 
 
 DATABASE_URL = build_database_url()
-
+# SQLite refuse le partage de connexion entre threads; FastAPI en ouvre plusieurs.
 connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
 engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

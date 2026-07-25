@@ -28,8 +28,6 @@ class MarketMatchOut(BaseModel):
 
 
 class RuptureOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     ingredient: IngredientOut
     quantite_manquante: float
     marches_suggeres: list[MarketMatchOut] = Field(default_factory=list)
