@@ -1,4 +1,4 @@
-# Sakafo AI — Thunderbolts
+# KaliTao
 
 Backend FastAPI pour Sakafo AI (hackathon Gemmify).
 
