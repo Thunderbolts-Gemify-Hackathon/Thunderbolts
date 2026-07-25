@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from backend.database import init_db
-from backend.routers import budget, market, onboarding, planning, stock
+from backend.routers import budget, gemma, market, onboarding, planning, stock
 
 
 @asynccontextmanager
@@ -20,6 +20,7 @@ app.include_router(stock.router)
 app.include_router(budget.router)
 app.include_router(market.router)
 app.include_router(planning.router)
+app.include_router(gemma.router)
 
 
 @app.get("/health")
