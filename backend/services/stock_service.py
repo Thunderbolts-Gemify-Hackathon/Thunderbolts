@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
@@ -19,9 +19,7 @@ def get_stock_profil(db: Session, profil_id: str) -> list[IngredientStock]:
         .filter(Stock.profil_id == profil_id)
         .first()
     )
-    if not stock:
-        return []
-    return list(stock.ingredients)
+    return list(stock.ingredients) if stock else []
 
 
 def _get_ingredient_stock(
@@ -34,10 +32,28 @@ def _get_ingredient_stock(
         .first()
     )
     if not ligne:
-        raise HTTPException(
-            status_code=404,
-            detail="Ingrédient introuvable dans le stock du profil",
-        )
+        raise HTTPException(status_code=404, detail="Ingrédient introuvable dans le stock du profil")
+    return ligne
+
+
+def _ajuster_stock(
+    db: Session,
+    profil_id: str,
+    ingredient_id: str,
+    delta: float,
+    *,
+    commit: bool = True,
+    clamp_zero: bool = False,
+) -> IngredientStock:
+    ligne = _get_ingredient_stock(db, profil_id, ingredient_id)
+    nouvelle = ligne.quantite_disponible + delta
+    ligne.quantite_disponible = max(0.0, nouvelle) if clamp_zero else nouvelle
+    ligne.stock.derniere_mise_a_jour = datetime.now(timezone.utc).replace(tzinfo=None)
+    if commit:
+        db.commit()
+        db.refresh(ligne)
+    else:
+        db.flush()
     return ligne
 
 
@@ -46,18 +62,14 @@ def update_stock(
     profil_id: str,
     ingredient_id: str,
     quantite_a_deduire: float,
+    *,
+    commit: bool = True,
 ) -> IngredientStock:
-    """Déduit une quantité issue de RecetteIngredient.poids_requis — jamais une estimation."""
     if quantite_a_deduire < 0:
         raise HTTPException(status_code=400, detail="quantite_a_deduire doit être >= 0")
-
-    ligne = _get_ingredient_stock(db, profil_id, ingredient_id)
-    nouvelle_qte = max(0.0, ligne.quantite_disponible - quantite_a_deduire)
-    ligne.quantite_disponible = nouvelle_qte
-    ligne.stock.derniere_mise_a_jour = datetime.utcnow()
-    db.commit()
-    db.refresh(ligne)
-    return ligne
+    return _ajuster_stock(
+        db, profil_id, ingredient_id, -quantite_a_deduire, commit=commit, clamp_zero=True
+    )
 
 
 def recrediter_stock(
@@ -65,17 +77,12 @@ def recrediter_stock(
     profil_id: str,
     ingredient_id: str,
     quantite: float,
+    *,
+    commit: bool = True,
 ) -> IngredientStock:
-    """Inverse de update_stock (annulation de validation de repas — RF-12)."""
     if quantite < 0:
         raise HTTPException(status_code=400, detail="quantite doit être >= 0")
-
-    ligne = _get_ingredient_stock(db, profil_id, ingredient_id)
-    ligne.quantite_disponible = ligne.quantite_disponible + quantite
-    ligne.stock.derniere_mise_a_jour = datetime.utcnow()
-    db.commit()
-    db.refresh(ligne)
-    return ligne
+    return _ajuster_stock(db, profil_id, ingredient_id, quantite, commit=commit)
 
 
 def detecter_ruptures(db: Session, profil_id: str, planning_id: str) -> list[RuptureOut]:
@@ -107,32 +114,23 @@ def detecter_ruptures(db: Session, profil_id: str, planning_id: str) -> list[Rup
         for ligne in get_stock_profil(db, profil_id)
     }
 
-    ruptures: list[RuptureOut] = []
+    ruptures = []
     for ingredient_id, poids_requis in requis.items():
-        disponible = stock_dispo.get(ingredient_id, 0.0)
-        manquant = poids_requis - disponible
+        manquant = poids_requis - stock_dispo.get(ingredient_id, 0.0)
         if manquant > 0:
-            ingredient = ingredients_map[ingredient_id]
             ruptures.append(
                 RuptureOut(
-                    ingredient=IngredientOut.model_validate(ingredient),
+                    ingredient=IngredientOut.model_validate(ingredients_map[ingredient_id]),
                     quantite_manquante=round(manquant, 2),
-                    marches_suggeres=[],
                 )
             )
     return ruptures
 
 
-def check_expiry(
-    db: Session,
-    profil_id: str,
-    jours: int = 7,
-) -> list[IngredientStock]:
-    """Retourne les IngredientStock proches de la péremption (tool calling Gemma)."""
+def check_expiry(db: Session, profil_id: str, jours: int = 7) -> list[IngredientStock]:
     limite = date.today() + timedelta(days=jours)
-    lignes = get_stock_profil(db, profil_id)
     return [
         ligne
-        for ligne in lignes
+        for ligne in get_stock_profil(db, profil_id)
         if ligne.date_peremption is not None and ligne.date_peremption <= limite
     ]

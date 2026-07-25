@@ -10,13 +10,11 @@ from backend.services.market_service import (
 )
 
 
-# Analakely approx
 ORIGIN_LAT = -18.9102
 ORIGIN_LON = 47.5256
 
 
 def _seed_markets(db_session, ingredient_id: str):
-    # Proche / sûr / cher
     pdv_sur = PointDeVente(
         nom="Score Analakely",
         type="grande_surface",
@@ -24,7 +22,6 @@ def _seed_markets(db_session, ingredient_id: str):
         longitude=47.5260,
         horaires_verifies=True,
     )
-    # Proche / a_eviter / moins cher
     pdv_eviter = PointDeVente(
         nom="Marche sombre",
         type="epicerie",
@@ -32,14 +29,12 @@ def _seed_markets(db_session, ingredient_id: str):
         longitude=47.5270,
         horaires_verifies=False,
     )
-    # Proche / prudence / prix moyen
     pdv_prudence = PointDeVente(
         nom="Epicerie 67ha",
         type="epicerie",
         latitude=-18.9130,
         longitude=47.5280,
     )
-    # Hors rayon
     pdv_loin = PointDeVente(
         nom="Super loin",
         type="grossiste",
@@ -121,13 +116,11 @@ def test_find_nearby_market_tri_et_regle_securite(db_session):
     assert "Super loin" not in noms
     assert len(matches) == 3
 
-    # a_eviter jamais en premier même s'il est le moins cher
     assert matches[0].point_de_vente.nom != "Marche sombre"
     assert matches[0].deprioritise is False
     assert matches[-1].point_de_vente.nom == "Marche sombre"
     assert matches[-1].deprioritise is True
 
-    # Les non dépriorisés sont triés par prix
     non_deprio = [m for m in matches if not m.deprioritise]
     assert [m.prix for m in non_deprio] == sorted(m.prix for m in non_deprio)
 
@@ -139,6 +132,5 @@ def test_get_meilleur_compromis(db_session):
     _seed_markets(db_session, poulet.id)
 
     meilleur = get_meilleur_compromis(db_session, poulet.id, ORIGIN_LAT, ORIGIN_LON)
-    # Top 3 prix : 8000 a_eviter, 10000 prudence, 15000 sur → premier non a_eviter = prudence
     assert meilleur.point_de_vente.nom == "Epicerie 67ha"
     assert meilleur.deprioritise is False

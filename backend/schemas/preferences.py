@@ -2,7 +2,6 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 SeveriteAllergie = Literal["legere", "moderee", "severe"]
 RegimeSpecifique = Literal[
     "aucun", "vegetarien", "vegan", "sans_porc", "halal", "sans_gluten"
@@ -15,14 +14,6 @@ class PreferencesCreate(BaseModel):
     severite_allergie: Optional[SeveriteAllergie] = None
     regime_specifique: Optional[RegimeSpecifique] = None
     aliments_detestes: list[str] = Field(default_factory=list)
-
-
-class PreferencesUpdate(BaseModel):
-    tabous: Optional[list[str]] = None
-    allergies: Optional[list[str]] = None
-    severite_allergie: Optional[SeveriteAllergie] = None
-    regime_specifique: Optional[RegimeSpecifique] = None
-    aliments_detestes: Optional[list[str]] = None
 
 
 class PreferencesOut(BaseModel):

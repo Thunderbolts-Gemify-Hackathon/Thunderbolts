@@ -19,10 +19,8 @@ def _get_budget_profil(db: Session, profil_id: str) -> Budget:
 
 
 def check_budget(db: Session, profil_id: str, cout_estime: float) -> CheckBudgetResponse:
-    """Lecture seule — ne déduit rien (vérification avant suggestion d'achat)."""
     if cout_estime < 0:
         raise HTTPException(status_code=400, detail="cout_estime doit être >= 0")
-
     budget = _get_budget_profil(db, profil_id)
     return CheckBudgetResponse(
         disponible=budget.montant_restant >= cout_estime,
@@ -32,10 +30,8 @@ def check_budget(db: Session, profil_id: str, cout_estime: float) -> CheckBudget
 
 
 def deduire_budget(db: Session, profil_id: str, montant: float) -> Budget:
-    """Déduit réellement du montant_restant après confirmation d'achat."""
     if montant < 0:
         raise HTTPException(status_code=400, detail="montant doit être >= 0")
-
     budget = _get_budget_profil(db, profil_id)
     budget.montant_restant = max(0.0, budget.montant_restant - montant)
     db.commit()

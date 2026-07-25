@@ -139,7 +139,6 @@ def test_check_budget_lecture_seule(db_session):
     assert avant.disponible is True
     assert avant.montant_restant == 100000
 
-    # check_budget ne doit rien déduire
     apres = budget_service.check_budget(db_session, profil.id, 20000)
     assert apres.montant_restant == 100000
 
