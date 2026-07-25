@@ -1,5 +1,6 @@
 from datetime import date
 
+from backend.models.localisation import Localisation
 from backend.tests.router_fixtures import ORIGIN_LAT, ORIGIN_LON, auth_headers, seed_router_demo
 
 
@@ -71,3 +72,29 @@ def test_stock_upsert_via_api(client, db_session):
     )
     assert r.status_code == 200
     assert r.json()["quantite_disponible"] == 800.0
+
+
+def test_directive_courses(client, db_session):
+    utilisateur, profil, riz, _, _ = seed_router_demo(db_session)
+    headers = auth_headers(utilisateur)
+    db_session.add(
+        Localisation(
+            profil_id=profil.id,
+            latitude=ORIGIN_LAT,
+            longitude=ORIGIN_LON,
+            quartier="Analakely",
+        )
+    )
+    db_session.commit()
+
+    r = client.post(
+        f"/ia/{profil.id}/directive-courses",
+        headers=headers,
+        json={"ingredient_nom": "riz"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ingredient_nom"] == "riz"
+    assert body["point_de_vente"] == "Score Analakely"
+    assert "va a" in body["phrase"].lower() or "Score" in body["phrase"]
+    assert body["prix"] == 12000

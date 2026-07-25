@@ -12,9 +12,16 @@ from backend.deps import require_profil_owner
 from backend.models.etat_du_jour import EtatDuJour
 from backend.models.foyer import Foyer
 from backend.models.profil import Profil
-from backend.schemas.gemma import ChatRequest, ChatResponse, RemedeResponse
+from backend.schemas.gemma import (
+    ChatRequest,
+    ChatResponse,
+    DirectiveCoursesRequest,
+    DirectiveCoursesResponse,
+    RemedeResponse,
+)
 from backend.schemas.planning import PeriodePlanning, PlanningOut
 from backend.services import onboarding_suite, planning_generation_service
+from backend.services.directive_courses_service import build_directive_courses
 from backend.services.gemma_agent import run_tool_loop
 from backend.services.gemma_client import GemmaClient
 from backend.services.prompts import build_system_prompt
@@ -59,6 +66,25 @@ def chat(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     return ChatResponse(reponse=reponse, tool_calls=tool_calls)
+
+
+@router.post(
+    "/{profil_id}/directive-courses",
+    response_model=DirectiveCoursesResponse,
+)
+def directive_courses(
+    payload: DirectiveCoursesRequest,
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    """Directive courses structurée (seed KaliTao) pour lecture vocale."""
+    return build_directive_courses(
+        db,
+        profil.id,
+        ingredient_id=payload.ingredient_id,
+        ingredient_nom=payload.ingredient_nom,
+        rayon_km=payload.rayon_km,
+    )
 
 
 @router.post("/{profil_id}/suggestion-remede", response_model=RemedeResponse)

@@ -36,6 +36,13 @@ PLANNING_JSON_SHAPE = (
     '"recette_id": "..."}]'
 )
 
+RULE_OWN_DATA = (
+    "RÈGLE STRICTE — SOURCES AUTORISÉES : tu t'appuies uniquement sur (1) le profil foyer "
+    "ci-dessus, (2) les recettes déjà filtrées / fournies par KaliTao, (3) les résultats des "
+    "outils backend. Tu n'inventes pas de plats, marchés, prix ou conseils issus du web ou "
+    "de connaissances externes non vérifiées par un outil."
+)
+
 RULE_NO_HALLUCINATION = (
     "RÈGLE STRICTE — DONNÉES CHIFFRÉES : tu ne dois jamais halluciner un prix, un stock, "
     "une distance ou toute autre donnée chiffrée. Utilise systématiquement les outils "
@@ -48,6 +55,12 @@ RULE_FOOD_SAFETY = (
     "dans les allergies ou les tabous du profil ci-dessus, sans aucune exception, même si "
     "l'utilisateur le demande explicitement. Si une demande de l'utilisateur entre en conflit "
     "avec une allergie ou un tabou, refuse poliment et propose une alternative sûre."
+)
+
+RULE_VOICE_DIRECTIVE = (
+    "Quand l'utilisateur demande où acheter un produit, réponds en directive courte et claire "
+    "(lieu, prix issu de l'outil, distance, sécurité du trajet). Si un trajet est marqué "
+    "a_eviter, propose un autre point de vente."
 )
 
 OUTPUT_FORMAT = (
@@ -97,8 +110,10 @@ def build_system_prompt(profil_complet: dict[str, Any]) -> str:
             _describe_preferences(ctx.preferences),
             _describe_budget(ctx.budget),
             _describe_localisation(ctx.localisation),
+            RULE_OWN_DATA,
             RULE_NO_HALLUCINATION,
             RULE_FOOD_SAFETY,
+            RULE_VOICE_DIRECTIVE,
             OUTPUT_FORMAT,
         ]
     )

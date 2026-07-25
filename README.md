@@ -47,12 +47,15 @@ Règle produit : aucun prix, stock ou distance inventé. Ces valeurs passent tou
 
 ## Routes principales
 
-- `/onboarding/...` : profil, foyer, préférences, budget, localisation
+- `/onboarding/...` : profil, foyer, préférences, budget, localisation, état du jour
 - `/stock/...` : inventaire et alertes de péremption
 - `/budget/...` : contrôle du montant disponible
-- `/market/...` : points de vente et prix
+- `/market/...` : points de vente et prix (seed KaliTao)
 - `/planning/...` : planning de repas et validation
+- `/ia/...` : génération planning, chat Gemma, directive courses, suggestion remède
 - `/health` : état du service
+
+Gemma ne s’appuie que sur le profil, les recettes filtrées et les outils backend (pas de web inventé).
 
 ## Tests
 

@@ -10,15 +10,32 @@ POINTS_DE_VENTE = [
 ]
 
 PRIX_BASE = {
-    "riz": 2500, "bredes mafana": 1500, "poulet": 12000, "pois du cap": 4000,
-    "tomate": 2000, "oignon": 1800, "huile": 5000, "sel": 500, "ail": 3000,
-    "gingembre": 2500, "poisson": 10000, "haricot": 3500, "canard": 15000,
-    "pois chiches": 4500, "arachide": 6000,
+    "riz": 2500,
+    "bredes mafana": 1500,
+    "poulet": 12000,
+    "pois du cap": 4000,
+    "tomate": 2000,
+    "oignon": 1800,
+    "huile": 5000,
+    "sel": 500,
+    "ail": 3000,
+    "gingembre": 2500,
+    "poisson": 10000,
+    "haricot": 3500,
+    "canard": 15000,
+    "pois chiches": 4500,
+    "arachide": 6000,
 }
 PRIX_MULT = [1.15, 1.25, 1.20, 0.75, 0.85, 0.70, 1.10, 0.90]
 
+# Au moins un trajet a_eviter pour la démo sécurité.
 ITINERAIRES = [
     ("Score Analakely", 0.8, "sur", "pied"),
+    ("Shoprite 67ha", 3.2, "sur", "taxi"),
+    ("Leader Price Ankorondrano", 3.0, "prudence", "moto"),
     ("Marche Andravoahangy", 2.5, "prudence", "moto"),
     ("Epicerie Analakely Centre", 1.2, "a_eviter", "pied"),
+    ("Grossiste Ankorondrano", 3.5, "sur", "taxi"),
+    ("Super U Ambodivona", 1.5, "sur", "pied"),
+    ("Marche 67ha Sud", 3.8, "prudence", "pied"),
 ]
