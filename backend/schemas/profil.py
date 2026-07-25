@@ -7,7 +7,8 @@ Objectif = Literal["perte_poids", "maintien", "prise_masse"]
 
 
 class ProfilCreate(BaseModel):
-    age: int = Field(ge=1, le=120)
+    utilisateur_id: str
+    age: Optional[int] = Field(default=None, ge=1, le=120)
     sexe: str
     poids: float = Field(gt=0)
     taille: float = Field(gt=0)
@@ -20,6 +21,7 @@ class ProfilOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    utilisateur_id: Optional[str] = None
     age: int
     sexe: str
     poids: float

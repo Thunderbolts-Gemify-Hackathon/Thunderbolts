@@ -25,4 +25,5 @@ class RecetteOut(BaseModel):
     glucides: float
     lipides: float
     tags: list[str]
+    instructions: Optional[str] = None
     ingredients: list[RecetteIngredientOut] = Field(default_factory=list)

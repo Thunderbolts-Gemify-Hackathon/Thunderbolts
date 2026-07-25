@@ -9,6 +9,7 @@ class BudgetCreate(BaseModel):
     montant: float = Field(gt=0)
     periode: PeriodeBudget
     montant_restant: Optional[float] = Field(default=None, ge=0)
+    devise: str = Field(default="Ar", min_length=1, max_length=10)
 
 
 class BudgetOut(BaseModel):
@@ -19,3 +20,4 @@ class BudgetOut(BaseModel):
     montant: float
     periode: str
     montant_restant: float
+    devise: str = "Ar"

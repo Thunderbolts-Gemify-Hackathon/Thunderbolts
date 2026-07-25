@@ -25,3 +25,4 @@ class UtilisateurOut(BaseModel):
     prenom: str
     email: str
     date_naissance: date
+    api_token: str
