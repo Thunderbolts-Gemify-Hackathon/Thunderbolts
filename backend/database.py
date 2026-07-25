@@ -36,5 +36,7 @@ def get_db():
 
 def init_db() -> None:
     from backend import models  # noqa: F401
+    from backend.db_migrate import migrate_sqlite
 
     Base.metadata.create_all(bind=engine)
+    migrate_sqlite(engine)
