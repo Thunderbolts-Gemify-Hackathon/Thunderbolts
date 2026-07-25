@@ -1,3 +1,5 @@
+import uuid
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
@@ -14,6 +16,7 @@ def create_utilisateur(db: Session, data: UtilisateurCreate) -> Utilisateur:
         prenom=data.prenom,
         email=data.email,
         date_naissance=data.date_naissance,
+        api_token=uuid.uuid4().hex,
     )
     db.add(utilisateur)
     db.commit()

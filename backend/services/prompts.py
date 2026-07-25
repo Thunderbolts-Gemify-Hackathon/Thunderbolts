@@ -157,11 +157,20 @@ def _describe_foyer(foyer: FoyerOut | None) -> str:
         return "Composition du foyer : non renseignée."
 
     ligne = f"Foyer de {foyer.nombre_personnes} personne(s)."
-    membres = ", ".join(
-        f"{m.age_approx} ans" + ("" if m.regime_aligne else " (régime différent)")
-        for m in foyer.membres
-    )
+    membres = ", ".join(_describe_membre(m) for m in foyer.membres)
     return f"{ligne} Membres : {membres}." if membres else ligne
+
+
+def _describe_membre(membre) -> str:
+    parts = []
+    if membre.prenom:
+        parts.append(membre.prenom)
+    if membre.lien:
+        parts.append(f"({membre.lien})")
+    parts.append(f"{membre.age_approx} ans")
+    if not membre.regime_aligne:
+        parts.append("(régime différent)")
+    return " ".join(parts)
 
 
 def _describe_preferences(preferences: PreferencesOut | None) -> str:
@@ -178,6 +187,11 @@ def _describe_preferences(preferences: PreferencesOut | None) -> str:
     ]
     if preferences.regime_specifique and preferences.regime_specifique != "aucun":
         lignes.append(f"Régime spécifique à respecter : {preferences.regime_specifique}.")
+    if preferences.aliments_aimes:
+        lignes.append(
+            "Aliments appréciés (à privilégier si possible) : "
+            f"{_join_or_aucun(preferences.aliments_aimes)}."
+        )
     if preferences.aliments_detestes:
         lignes.append(
             "Aliments à éviter par préférence (non médical) : "
@@ -189,7 +203,11 @@ def _describe_preferences(preferences: PreferencesOut | None) -> str:
 def _describe_budget(budget: BudgetOut | None) -> str:
     if budget is None:
         return "Budget disponible : non renseigné."
-    return f"Budget disponible : {budget.montant_restant} Ar restants sur la {budget.periode}."
+    devise = budget.devise or "Ar"
+    return (
+        f"Budget disponible : {budget.montant_restant} {devise} "
+        f"restants sur la {budget.periode}."
+    )
 
 
 def _describe_localisation(localisation: LocalisationOut | None) -> str:

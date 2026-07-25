@@ -33,7 +33,13 @@ def make_stock_profil(db, quantite_riz=500.0, quantite_poulet=100.0, with_budget
     db.flush()
 
     if with_budget:
-        prefs = Preferences(profil_id=profil.id, tabous=[], allergies=[], aliments_detestes=[])
+        prefs = Preferences(
+            profil_id=profil.id,
+            tabous=[],
+            allergies=[],
+            aliments_aimes=[],
+            aliments_detestes=[],
+        )
         db.add(prefs)
         db.flush()
         db.add(
