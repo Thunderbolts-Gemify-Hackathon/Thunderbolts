@@ -12,7 +12,7 @@ def test_ollama_connection():
     
     # Configuration
     OLLAMA_URL = "http://localhost:11434/api/chat"
-    MODEL = "smollm:135m"  # Version ultra-légère pour une meilleure latence
+    MODEL = "gemma4:e2b"  # Version ultra-légère pour une meilleure latence
     
     # Payload de test
     payload = {
