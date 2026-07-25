@@ -1,0 +1,43 @@
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class MembreFoyerCreate(BaseModel):
+    age_approx: int = Field(ge=0, le=120)
+    regime_aligne: bool = True
+    restrictions: Optional[str] = None
+
+
+class MembreFoyerUpdate(BaseModel):
+    age_approx: Optional[int] = Field(default=None, ge=0, le=120)
+    regime_aligne: Optional[bool] = None
+    restrictions: Optional[str] = None
+
+
+class MembreFoyerOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    foyer_id: str
+    age_approx: int
+    regime_aligne: bool
+    restrictions: Optional[str] = None
+
+
+class FoyerCreate(BaseModel):
+    nombre_personnes: int = Field(ge=1)
+    membres: list[MembreFoyerCreate] = Field(default_factory=list)
+
+
+class FoyerUpdate(BaseModel):
+    nombre_personnes: Optional[int] = Field(default=None, ge=1)
+
+
+class FoyerOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    profil_id: str
+    nombre_personnes: int
+    membres: list[MembreFoyerOut] = Field(default_factory=list)

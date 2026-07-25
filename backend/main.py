@@ -1,0 +1,27 @@
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+from backend.database import init_db
+from backend.routers import onboarding
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    init_db()
+    yield
+
+
+app = FastAPI(
+    title="Sakafo AI API",
+    description="Backend FastAPI — Gemmify Hackathon (Madagascar)",
+    version="0.1.0",
+    lifespan=lifespan,
+)
+
+app.include_router(onboarding.router)
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok", "service": "sakafo-ai"}
