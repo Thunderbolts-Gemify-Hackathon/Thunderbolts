@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from backend.models.foyer import Foyer
     from backend.models.localisation import Localisation
     from backend.models.preferences import Preferences
+    from backend.models.stock import Stock
 
 
 class Profil(Base):
@@ -31,3 +32,4 @@ class Profil(Base):
     localisation: Mapped[Optional["Localisation"]] = relationship(
         back_populates="profil", uselist=False
     )
+    stock: Mapped[Optional["Stock"]] = relationship(back_populates="profil", uselist=False)
