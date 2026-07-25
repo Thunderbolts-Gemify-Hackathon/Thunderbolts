@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database import init_db
 from backend.routers import budget, gemma, market, onboarding, planning, stock
@@ -13,6 +14,14 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="KaliTao API", version="0.1.0", lifespan=lifespan)
+
+# Dev only : autorise le frontend local (Vite) à appeler l'API depuis un autre port.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5174", "http://127.0.0.1:5174"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Routers = HTTP only. La logique métier est dans services/ (réutilisable hors API).
 app.include_router(onboarding.router)

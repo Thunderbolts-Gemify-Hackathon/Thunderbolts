@@ -21,8 +21,13 @@ def run_tool_loop(
     *,
     tools: list[dict[str, Any]] | None = None,
     max_iterations: int = MAX_TOOL_ITERATIONS,
+    trace: list[dict[str, Any]] | None = None,
 ) -> str:
-    """Exécute les tool calls jusqu'à une réponse texte finale."""
+    """Exécute les tool calls jusqu'à une réponse texte finale.
+
+    Si `trace` est fourni, chaque tool call exécuté y est ajouté (name/arguments/result) —
+    utile pour afficher côté client quelles données chiffrées viennent bien d'un outil.
+    """
     active_tools = tools if tools is not None else TOOLS
     for _ in range(max_iterations):
         message = client.chat(messages, tools=active_tools)["message"]
@@ -32,7 +37,10 @@ def run_tool_loop(
 
         messages.append({"role": "assistant", "content": message.get("content") or ""})
         for tool_call in tool_calls:
-            resultat = execute_tool_call(db, tool_call["name"], tool_call.get("arguments") or {})
+            arguments = tool_call.get("arguments") or {}
+            resultat = execute_tool_call(db, tool_call["name"], arguments)
+            if trace is not None:
+                trace.append({"name": tool_call["name"], "arguments": arguments, "result": resultat})
             messages.append(
                 {
                     "role": "tool",

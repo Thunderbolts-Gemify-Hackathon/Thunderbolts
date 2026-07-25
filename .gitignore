@@ -12,3 +12,5 @@ build/
 *.md
 !README.md
 logs/*.log
+venv/
+frontend/
