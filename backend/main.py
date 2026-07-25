@@ -15,7 +15,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(title="KaliTao API", version="0.1.0", lifespan=lifespan)
 
-# Dev only : autorise le frontend local (Vite) à appeler l'API depuis un autre port.
+# Dev only : Vite + Expo (web / LAN).
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -23,7 +23,10 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://localhost:5174",
         "http://127.0.0.1:5174",
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
     ],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?",
     allow_methods=["*"],
     allow_headers=["*"],
 )
