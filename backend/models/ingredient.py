@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.database import Base
 
 if TYPE_CHECKING:
+    from backend.models.point_de_vente import Offre
     from backend.models.recette import RecetteIngredient
     from backend.models.stock import IngredientStock
 
@@ -22,3 +23,4 @@ class Ingredient(Base):
     recette_ingredients: Mapped[list["RecetteIngredient"]] = relationship(
         back_populates="ingredient"
     )
+    offres: Mapped[list["Offre"]] = relationship(back_populates="ingredient")
