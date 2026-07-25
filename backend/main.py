@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from backend.database import init_db
 from backend.routers import budget, market, onboarding, planning, stock
+from backend.routers import budget, gemma, market, onboarding, planning, stock
 
 
 @asynccontextmanager
