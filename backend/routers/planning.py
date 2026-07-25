@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.schemas.composites import ListeCoursesItem
 from backend.schemas.planning import PeriodePlanning, PlanningOut, RepasPlanifieOut
-from backend.services import planning_service
+from backend.services import courses_service, planning_service
 
 router = APIRouter(prefix="/planning", tags=["planning"])
 
@@ -36,4 +36,4 @@ def annuler_validation(repas_id: str, db: Session = Depends(get_db)):
 
 @router.get("/{planning_id}/courses", response_model=list[ListeCoursesItem])
 def liste_courses(planning_id: str, db: Session = Depends(get_db)):
-    return planning_service.get_liste_courses(db, planning_id)
+    return courses_service.get_liste_courses(db, planning_id)

@@ -8,7 +8,7 @@ from backend.schemas.foyer import FoyerCreate, FoyerOut
 from backend.schemas.localisation import LocalisationCreate, LocalisationOut
 from backend.schemas.preferences import PreferencesCreate, PreferencesOut
 from backend.schemas.profil import ProfilCreate, ProfilOut
-from backend.services import onboarding_service
+from backend.services import onboarding_service, onboarding_suite
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 
@@ -36,31 +36,25 @@ def get_foyer(profil_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/profil/{profil_id}/preferences", response_model=PreferencesOut, status_code=201)
-def create_preferences(
-    profil_id: str, payload: PreferencesCreate, db: Session = Depends(get_db)
-):
+def create_preferences(profil_id: str, payload: PreferencesCreate, db: Session = Depends(get_db)):
     return onboarding_service.create_preferences(db, profil_id, payload)
 
 
 @router.post("/profil/{profil_id}/budget", response_model=BudgetOut, status_code=201)
 def create_budget(profil_id: str, payload: BudgetCreate, db: Session = Depends(get_db)):
-    return onboarding_service.create_budget(db, profil_id, payload)
+    return onboarding_suite.create_budget(db, profil_id, payload)
 
 
 @router.get("/profil/{profil_id}/budget", response_model=BudgetOut)
 def get_budget(profil_id: str, db: Session = Depends(get_db)):
-    return onboarding_service.get_budget_by_profil(db, profil_id)
+    return onboarding_suite.get_budget_by_profil(db, profil_id)
 
 
 @router.post("/profil/{profil_id}/localisation", response_model=LocalisationOut, status_code=201)
-def create_localisation(
-    profil_id: str, payload: LocalisationCreate, db: Session = Depends(get_db)
-):
-    return onboarding_service.create_localisation(db, profil_id, payload)
+def create_localisation(profil_id: str, payload: LocalisationCreate, db: Session = Depends(get_db)):
+    return onboarding_suite.create_localisation(db, profil_id, payload)
 
 
 @router.post("/profil/{profil_id}/etat-du-jour", response_model=EtatDuJourOut, status_code=201)
-def create_etat_du_jour(
-    profil_id: str, payload: EtatDuJourCreate, db: Session = Depends(get_db)
-):
-    return onboarding_service.create_etat_du_jour(db, profil_id, payload)
+def create_etat_du_jour(profil_id: str, payload: EtatDuJourCreate, db: Session = Depends(get_db)):
+    return onboarding_suite.create_etat_du_jour(db, profil_id, payload)
