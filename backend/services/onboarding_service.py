@@ -4,10 +4,12 @@ from sqlalchemy.orm import Session, joinedload
 from backend.models.foyer import Foyer, MembreFoyer
 from backend.models.preferences import Preferences
 from backend.models.profil import Profil
+from backend.models.utilisateur import Utilisateur
 from backend.schemas.foyer import FoyerCreate
 from backend.schemas.preferences import PreferencesCreate
 from backend.schemas.profil import ProfilCreate, ProfilOut
 from backend.services.nutrition import calculer_besoin_calorique, calculer_imc
+from backend.services.utilisateur_service import age_depuis_date_naissance
 
 
 def _profil_or_404(db: Session, profil_id: str) -> Profil:
@@ -17,8 +19,22 @@ def _profil_or_404(db: Session, profil_id: str) -> Profil:
     return profil
 
 
+def _resoudre_age(db: Session, data: ProfilCreate) -> int:
+    if data.age is not None:
+        return data.age
+    if data.utilisateur_id:
+        utilisateur = db.get(Utilisateur, data.utilisateur_id)
+        if not utilisateur:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+        return age_depuis_date_naissance(utilisateur.date_naissance)
+    raise HTTPException(
+        status_code=422, detail="age requis si utilisateur_id n'est pas fourni"
+    )
+
+
 def create_profil(db: Session, data: ProfilCreate) -> Profil:
-    profil = Profil(**data.model_dump())
+    age = _resoudre_age(db, data)
+    profil = Profil(**{**data.model_dump(), "age": age})
     db.add(profil)
     db.commit()
     db.refresh(profil)

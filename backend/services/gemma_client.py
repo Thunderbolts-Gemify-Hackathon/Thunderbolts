@@ -16,7 +16,7 @@ except ImportError:  # pragma: no cover
 if load_dotenv:
     load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-OLLAMA_TIMEOUT_S = 15.0
+OLLAMA_TIMEOUT_S = float(os.getenv("OLLAMA_TIMEOUT_S", "100"))
 GEMMA4_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 TOOL_JSON_INSTRUCTION = (
     "Réponds uniquement en JSON valide, sans markdown : "

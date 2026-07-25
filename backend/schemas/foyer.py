@@ -4,6 +4,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class MembreFoyerCreate(BaseModel):
+    prenom: Optional[str] = None
+    lien: Optional[str] = None
     age_approx: int = Field(ge=0, le=120)
     regime_aligne: bool = True
     restrictions: Optional[str] = None
@@ -14,6 +16,8 @@ class MembreFoyerOut(BaseModel):
 
     id: str
     foyer_id: str
+    prenom: Optional[str] = None
+    lien: Optional[str] = None
     age_approx: int
     regime_aligne: bool
     restrictions: Optional[str] = None

@@ -34,6 +34,8 @@ class MembreFoyer(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     foyer_id: Mapped[str] = mapped_column(String(36), ForeignKey("foyers.id"), nullable=False)
+    prenom: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    lien: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
     age_approx: Mapped[int] = mapped_column(Integer, nullable=False)
     regime_aligne: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     restrictions: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)

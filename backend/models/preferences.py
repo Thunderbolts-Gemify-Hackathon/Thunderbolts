@@ -22,6 +22,7 @@ class Preferences(Base):
     allergies: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     severite_allergie: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
     regime_specifique: Mapped[Optional[str]] = mapped_column(String(40), nullable=True)
+    aliments_aimes: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     aliments_detestes: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
     profil: Mapped["Profil"] = relationship(back_populates="preferences")

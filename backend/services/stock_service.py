@@ -1,9 +1,55 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
+from backend.models.profil import Profil
 from backend.models.stock import IngredientStock, Stock
+
+
+def upsert_stock_line(
+    db: Session,
+    profil_id: str,
+    ingredient_id: str,
+    quantite_disponible: float,
+    unite: str,
+    date_peremption: date | None = None,
+) -> IngredientStock:
+    if not db.get(Profil, profil_id):
+        raise HTTPException(status_code=404, detail="Profil introuvable")
+
+    stock = db.query(Stock).filter(Stock.profil_id == profil_id).first()
+    if not stock:
+        stock = Stock(profil_id=profil_id)
+        db.add(stock)
+        db.flush()
+
+    ligne = (
+        db.query(IngredientStock)
+        .filter(
+            IngredientStock.stock_id == stock.id,
+            IngredientStock.ingredient_id == ingredient_id,
+        )
+        .first()
+    )
+    if ligne:
+        ligne.quantite_disponible = quantite_disponible
+        ligne.unite = unite
+        ligne.date_peremption = date_peremption
+    else:
+        ligne = IngredientStock(
+            stock_id=stock.id,
+            ingredient_id=ingredient_id,
+            quantite_disponible=quantite_disponible,
+            unite=unite,
+            date_peremption=date_peremption,
+        )
+        db.add(ligne)
+
+    stock.derniere_mise_a_jour = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.commit()
+    db.refresh(ligne)
+    return ligne
 
 
 def get_stock_profil(db: Session, profil_id: str) -> list[IngredientStock]:

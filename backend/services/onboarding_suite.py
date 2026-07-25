@@ -59,6 +59,7 @@ def create_budget(db: Session, profil_id: str, data: BudgetCreate) -> Budget:
         montant=data.montant,
         periode=data.periode,
         montant_restant=data.montant_restant if data.montant_restant is not None else data.montant,
+        devise=data.devise,
     )
     db.add(budget)
     db.commit()

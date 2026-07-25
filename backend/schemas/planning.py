@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from backend.schemas.recette import RecetteOut
+
 PeriodePlanning = Literal["semaine", "mois"]
 
 
@@ -12,6 +14,7 @@ class RepasPlanifieOut(BaseModel):
     id: str
     planning_id: str
     recette_id: str
+    recette: RecetteOut
     jour: date
     type_repas: str
     statut: str

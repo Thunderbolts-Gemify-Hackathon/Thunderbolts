@@ -10,3 +10,4 @@ from backend.models.preferences import Preferences
 from backend.models.profil import Profil
 from backend.models.recette import Recette, RecetteIngredient
 from backend.models.stock import IngredientStock, Stock
+from backend.models.utilisateur import Utilisateur
