@@ -10,11 +10,11 @@ import {
 
 import { ApiError } from "@/api/http";
 import {
-  getCourses,
-  getPlanning,
+  getListeCoursesPeriode,
   isAAcheter,
-  manquant,
-  type CourseItem,
+  type EstimationCoutListe,
+  type ListeCoursesItem,
+  type PeriodeCourses,
 } from "@/api/planning";
 import { weekStartIso } from "@/lib/dates";
 import { useSession } from "@/session/SessionContext";
@@ -25,9 +25,19 @@ import { colors, radius, space, type } from "@/theme";
 
 type Filter = "acheter" | "tout";
 
+const PERIODES: { id: PeriodeCourses; label: string }[] = [
+  { id: "jour", label: "Jour" },
+  { id: "semaine", label: "Semaine" },
+  { id: "mois", label: "Mois" },
+];
+
 function formatQty(n: number, unite: string) {
   const v = Number.isInteger(n) ? String(n) : n.toFixed(1);
   return `${v} ${unite}`;
+}
+
+function formatAr(n: number) {
+  return `${Math.round(n).toLocaleString("fr-FR")} Ar`;
 }
 
 export default function CoursesScreen() {
@@ -37,7 +47,10 @@ export default function CoursesScreen() {
   const token = session?.apiToken;
   const dateDebut = useMemo(() => weekStartIso(), []);
 
-  const [items, setItems] = useState<CourseItem[]>([]);
+  const [periode, setPeriode] = useState<PeriodeCourses>("semaine");
+  const [items, setItems] = useState<ListeCoursesItem[]>([]);
+  const [estimation, setEstimation] = useState<EstimationCoutListe | null>(null);
+  const [joursCouverts, setJoursCouverts] = useState(7);
   const [filter, setFilter] = useState<Filter>("acheter");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,29 +65,38 @@ export default function CoursesScreen() {
     setLoading(true);
     setError(null);
     try {
-      const planning = await getPlanning(profilId, token, dateDebut).catch((e) => {
-        if (e instanceof ApiError && e.status === 404) return null;
-        throw e;
-      });
-      if (!planning) {
+      const data = await getListeCoursesPeriode(
+        profilId,
+        token,
+        dateDebut,
+        periode
+      );
+      setHasPlanning(true);
+      setItems(data.items);
+      setEstimation(data.estimation);
+      setJoursCouverts(data.jours_couverts);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) {
         setHasPlanning(false);
         setItems([]);
+        setEstimation(null);
+        setError(null);
         return;
       }
-      setHasPlanning(true);
-      setItems(await getCourses(planning.id, token));
-    } catch (e) {
       setError(e instanceof ApiError ? e.detail : "Chargement impossible");
     } finally {
       setLoading(false);
     }
-  }, [profilId, token, dateDebut]);
+  }, [profilId, token, dateDebut, periode]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const aAcheter = useMemo(() => items.filter((i) => isAAcheter(i.statut)), [items]);
+  const aAcheter = useMemo(
+    () => items.filter((i) => isAAcheter(i.statut)),
+    [items]
+  );
   const visible = filter === "acheter" ? aAcheter : items;
 
   return (
@@ -97,22 +119,53 @@ export default function CoursesScreen() {
     >
       <Title>Liste de courses</Title>
       <Body>
-        Semaine du {dateDebut}. Compare le besoin du planning avec ton stock.
+        Du {dateDebut} · {joursCouverts} jour{joursCouverts > 1 ? "s" : ""}. Besoin
+        du planning moins ton stock.
       </Body>
+
+      <View style={styles.filters}>
+        {PERIODES.map((p) => (
+          <Pressable
+            key={p.id}
+            onPress={() => setPeriode(p.id)}
+            style={[styles.chip, periode === p.id && styles.chipActive]}
+          >
+            <Text
+              style={[
+                styles.chipText,
+                periode === p.id && styles.chipTextActive,
+              ]}
+            >
+              {p.label}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
 
       {loading ? <ActivityIndicator color={colors.brand} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       {!loading && !hasPlanning ? (
-        <Body>Aucun planning cette semaine. Genere d'abord ton menu.</Body>
+        <Body>
+          Aucun planning semaine pour cette date. Genere d'abord ton menu.
+        </Body>
       ) : null}
 
       {!loading && hasPlanning ? (
         <>
           <View style={styles.summary}>
             <Text style={styles.summaryText}>
-              {aAcheter.length} a acheter · {items.length - aAcheter.length} deja en stock
+              {aAcheter.length} a acheter · {items.length - aAcheter.length} deja
+              en stock
             </Text>
+            {estimation ? (
+              <Text style={styles.costText}>
+                Estimation {formatAr(estimation.cout_total_estime)}
+                {estimation.marches_a_visiter.length
+                  ? ` · ${estimation.marches_a_visiter.length} marche(s)`
+                  : ""}
+              </Text>
+            ) : null}
           </View>
 
           <View style={styles.filters}>
@@ -156,8 +209,7 @@ export default function CoursesScreen() {
 
       {visible.map((item) => {
         const buy = isAAcheter(item.statut);
-        const unite = item.ingredient.unite_defaut;
-        const gap = manquant(item);
+        const unite = item.unite || item.ingredient.unite_defaut;
         return (
           <View
             key={item.ingredient.id}
@@ -165,12 +217,13 @@ export default function CoursesScreen() {
           >
             <Text style={styles.nom}>{item.ingredient.nom}</Text>
             <Text style={styles.meta}>
-              Besoin {formatQty(item.poids_total_requis, unite)} · stock{" "}
-              {formatQty(item.stock_disponible, unite)}
+              {item.categorie} · besoin{" "}
+              {formatQty(item.quantite_totale_requise, unite)} · stock{" "}
+              {formatQty(item.quantite_disponible, unite)}
             </Text>
             {buy ? (
               <Text style={styles.gap}>
-                Manque {formatQty(gap, unite)}
+                Manque {formatQty(item.quantite_a_acheter, unite)}
               </Text>
             ) : (
               <Text style={styles.ok}>Disponible</Text>
@@ -207,13 +260,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.brandSoft,
     borderRadius: radius.md,
     padding: space.md,
+    gap: 4,
   },
   summaryText: {
     color: colors.brand,
     fontWeight: "700",
     fontSize: type.body,
   },
-  filters: { flexDirection: "row", gap: space.sm },
+  costText: {
+    color: colors.ink,
+    fontSize: type.small,
+    fontWeight: "600",
+  },
+  filters: { flexDirection: "row", gap: space.sm, flexWrap: "wrap" },
   chip: {
     borderWidth: 1,
     borderColor: colors.line,

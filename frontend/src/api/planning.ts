@@ -22,6 +22,43 @@ export type CourseItem = {
   statut: "disponible" | "à acheter" | string;
 };
 
+export type PeriodeCourses = "jour" | "semaine" | "mois";
+
+export type ListeCoursesItem = {
+  ingredient: {
+    id: string;
+    nom: string;
+    unite_defaut: string;
+    categorie?: string;
+  };
+  categorie: string;
+  quantite_totale_requise: number;
+  quantite_disponible: number;
+  quantite_a_acheter: number;
+  unite: string;
+  statut: "disponible" | "à acheter" | string;
+};
+
+export type EstimationCoutListe = {
+  cout_total_estime: number;
+  details_par_ingredient: {
+    ingredient_nom: string;
+    quantite_a_acheter: number;
+    unite: string;
+    cout_estime: number;
+    source_prix: string;
+  }[];
+  marches_a_visiter: { id: string; nom: string }[];
+};
+
+export type ListeCoursesPeriode = {
+  periode: PeriodeCourses;
+  date_debut: string;
+  jours_couverts: number;
+  items: ListeCoursesItem[];
+  estimation: EstimationCoutListe | null;
+};
+
 export function getPlanning(
   profilId: string,
   token: string,
@@ -30,6 +67,18 @@ export function getPlanning(
 ) {
   const q = new URLSearchParams({ periode, date_debut: dateDebut });
   return api<Planning>(`/planning/${profilId}?${q}`, { token });
+}
+
+export function getListeCoursesPeriode(
+  profilId: string,
+  token: string,
+  dateDebut: string,
+  periode: PeriodeCourses = "semaine"
+) {
+  const q = new URLSearchParams({ periode, date_debut: dateDebut });
+  return api<ListeCoursesPeriode>(`/planning/${profilId}/liste-courses?${q}`, {
+    token,
+  });
 }
 
 export function generatePlanning(
