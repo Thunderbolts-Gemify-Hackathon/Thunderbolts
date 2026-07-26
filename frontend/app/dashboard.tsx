@@ -118,6 +118,10 @@ export default function DashboardScreen() {
     <Screen
       footer={
         <View style={styles.actions}>
+          <Button
+            label="Je veux manger quelque chose"
+            onPress={() => router.push("/repas" as Href)}
+          />
           <Button label="Planning" onPress={() => router.push("/planning" as Href)} />
           <Button label="Assistant" variant="ghost" onPress={() => router.push("/chat" as Href)} />
           <Button label="Liste de courses" variant="ghost" onPress={() => router.push("/courses" as Href)} />

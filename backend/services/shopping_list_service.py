@@ -1,4 +1,6 @@
-"""Liste de courses par période — calcul déterministe, aucun appel Gemma.
+"""Liste de courses par période — quantités/prix calculés de façon déterministe
+(jamais par Gemma, pour ne jamais halluciner un chiffre). Gemma est seulement
+utilisé pour reformuler la liste en message naturel (`phraser_liste_via_gemma`).
 
 Ancrage : le planning `semaine` déjà généré par Gemma. Pour `mois`, on répète
 le pattern hebdomadaire (4× + jours restants) sans régénérer via IA.
@@ -17,6 +19,7 @@ from backend.models.localisation import Localisation
 from backend.models.planning import Planning, RepasPlanifie
 from backend.models.recette import Recette, RecetteIngredient
 from backend.schemas.point_de_vente import PointDeVenteOut
+from backend.services.gemma_client import GemmaClient
 from backend.services.market_service import find_nearby_market
 from backend.services.stock_service import get_stock_profil
 
@@ -130,6 +133,51 @@ def estimer_cout_liste(
         "details_par_ingredient": details,
         "marches_a_visiter": list(marches.values()),
     }
+
+
+def phraser_liste_via_gemma(items: list[dict[str, Any]], periode: str) -> str:
+    """Reformule la liste (déjà calculée) en message court. Gemma ne peut ni changer
+    les quantités ni ajouter d'ingrédient — on ne lui donne que ce qui est à acheter."""
+    a_acheter = [i for i in items if i["quantite_a_acheter"] > 0]
+    if not a_acheter:
+        return "Rien a acheter, ton stock couvre deja tes repas prevus."
+
+    resume = "\n".join(
+        f"{i['ingredient'].nom} : {i['quantite_a_acheter']} {i['unite']} ({i['categorie']})"
+        for i in a_acheter
+    )
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "Tu rediges une liste de courses courte et amicale en francais pour "
+                "Sakafo AI, uniquement a partir des quantites deja calculees ci-dessous. "
+                "Ne change aucune quantite, n'ajoute et n'invente aucun ingredient hors "
+                "de cette liste."
+            ),
+        },
+        {
+            "role": "user",
+            "content": (
+                f"Periode : {periode}. Ingredients a acheter (quantite exacte) :\n{resume}"
+                "\n\nRedige un court message (3-5 phrases) qui organise cette liste par "
+                "categorie ou priorite, ton naturel et motivant."
+            ),
+        },
+    ]
+    try:
+        result = GemmaClient().chat(messages)
+    except RuntimeError:
+        return _message_par_defaut_liste(a_acheter)
+
+    contenu = (result["message"].get("content") or "").strip()
+    return contenu or _message_par_defaut_liste(a_acheter)
+
+
+def _message_par_defaut_liste(a_acheter: list[dict[str, Any]]) -> str:
+    noms = ", ".join(i["ingredient"].nom for i in a_acheter[:8])
+    suffixe = "…" if len(a_acheter) > 8 else ""
+    return f"{len(a_acheter)} ingredient(s) a acheter : {noms}{suffixe}."
 
 
 def localisation_profil(db: Session, profil_id: str) -> Localisation | None:

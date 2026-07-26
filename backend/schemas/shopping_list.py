@@ -42,3 +42,4 @@ class ListeCoursesPeriodeResponse(BaseModel):
     jours_couverts: int
     items: list[ListeCoursesPeriodeItem]
     estimation: Optional[EstimationCoutListe] = None
+    message: str = ""

@@ -121,6 +121,11 @@ export default function MarketScreen() {
               )
             }
           />
+          <Button
+            label="Aller au marche (liste du jour)"
+            variant="ghost"
+            onPress={() => router.push("/courses?periode=jour" as Href)}
+          />
           <Button label="Retour" variant="ghost" onPress={() => router.back()} />
         </View>
       }

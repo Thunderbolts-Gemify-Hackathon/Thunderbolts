@@ -48,7 +48,7 @@ def liste_courses_periode(
     lon: Optional[float] = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Liste de courses déterministe (jour/semaine/mois) — pas d'appel Gemma."""
+    """Liste de courses (quantites/prix deterministes) + message Gemma pour la phraser."""
     try:
         items_raw = shopping_list_service.generer_liste_courses_periode(
             db, profil.id, periode, date_debut
@@ -88,12 +88,15 @@ def liste_courses_periode(
             marches_a_visiter=raw_est["marches_a_visiter"],
         )
 
+    message = shopping_list_service.phraser_liste_via_gemma(items_raw, periode)
+
     return ListeCoursesPeriodeResponse(
         periode=periode,
         date_debut=date_debut.isoformat(),
         jours_couverts=shopping_list_service.JOURS_PAR_PERIODE[periode],
         items=items,
         estimation=estimation,
+        message=message,
     )
 
 

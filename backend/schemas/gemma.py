@@ -2,6 +2,10 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
+from backend.schemas.recette import RecetteOut
+
+TypeRepas = Literal["petit_dejeuner", "dejeuner", "diner"]
+
 
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
@@ -52,3 +56,16 @@ class DirectiveCoursesResponse(BaseModel):
     mode_deplacement: Optional[str] = None
     deprioritise: bool = False
     phrase: str
+
+
+class SuggestionRepasRequest(BaseModel):
+    type_repas: Optional[TypeRepas] = None
+    duree_max_minutes: Optional[int] = Field(default=None, gt=0)
+
+
+class SuggestionRepasResponse(BaseModel):
+    recette: RecetteOut
+    type_repas: TypeRepas
+    message: str
+    couverture_stock: float
+    ingredients_manquants: list[str] = Field(default_factory=list)

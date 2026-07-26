@@ -51,7 +51,7 @@ def seed_food(db: Session) -> dict:
         _appliquer_meta(ingredient, meta)
         ingredients[nom] = ingredient
 
-    for nom, (heure, kcal, prot, gluc, lip, tags, lignes) in RECETTES.items():
+    for nom, (heure, kcal, prot, gluc, lip, duree, tags, lignes) in RECETTES.items():
         recette = get_or_create(
             db,
             Recette,
@@ -61,11 +61,14 @@ def seed_food(db: Session) -> dict:
             proteines=prot,
             glucides=gluc,
             lipides=lip,
+            duree_minutes=duree,
             tags=tags,
             instructions=RECETTE_INSTRUCTIONS.get(nom),
         )
         if recette.instructions is None and nom in RECETTE_INSTRUCTIONS:
             recette.instructions = RECETTE_INSTRUCTIONS[nom]
+        if recette.duree_minutes is None:
+            recette.duree_minutes = duree
         if not recette.ingredients:
             for ing_nom, poids, unite in lignes:
                 db.add(

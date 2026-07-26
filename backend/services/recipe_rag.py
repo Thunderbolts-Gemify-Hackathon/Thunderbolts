@@ -36,6 +36,7 @@ def _serialize_recette(recette: Recette) -> dict[str, Any]:
         "proteines": recette.proteines,
         "glucides": recette.glucides,
         "lipides": recette.lipides,
+        "duree_minutes": recette.duree_minutes,
         "tags": list(recette.tags or []),
         "instructions": recette.instructions,
         "ingredients": [
