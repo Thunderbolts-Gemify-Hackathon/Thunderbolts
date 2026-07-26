@@ -26,6 +26,7 @@ _COLONNES = {
     "recettes": [
         ("instructions", "VARCHAR(2000)"),
         ("duree_minutes", "INTEGER"),
+        ("owner_profil_id", "VARCHAR(36)"),
     ],
     "budgets": [
         ("devise", "VARCHAR(10) DEFAULT 'Ar'"),

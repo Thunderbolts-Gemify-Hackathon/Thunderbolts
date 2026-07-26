@@ -10,6 +10,7 @@ from backend.database import Base
 if TYPE_CHECKING:
     from backend.models.ingredient import Ingredient
     from backend.models.planning import RepasPlanifie
+    from backend.models.profil import Profil
 
 
 class Recette(Base):
@@ -25,11 +26,15 @@ class Recette(Base):
     duree_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     tags: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     instructions: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
+    owner_profil_id: Mapped[Optional[str]] = mapped_column(
+        String(36), ForeignKey("profils.id"), nullable=True
+    )
 
     ingredients: Mapped[list["RecetteIngredient"]] = relationship(
         back_populates="recette", cascade="all, delete-orphan"
     )
     repas_planifies: Mapped[list["RepasPlanifie"]] = relationship(back_populates="recette")
+    owner: Mapped[Optional["Profil"]] = relationship(back_populates="recettes_creees")
 
 
 class RecetteIngredient(Base):

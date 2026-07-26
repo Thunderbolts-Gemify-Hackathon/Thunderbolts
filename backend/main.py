@@ -6,11 +6,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.database import init_db
 from backend.routers import (
     budget,
+    courses,
+    favoris,
+    foyer_multi,
     gemma,
     ingredients,
     market,
+    notifications,
     onboarding,
     planning,
+    prices,
+    recettes,
+    social,
     stock,
     utilisateur,
 )
@@ -47,6 +54,13 @@ app.include_router(ingredients.router)
 app.include_router(budget.router)
 app.include_router(market.router)
 app.include_router(planning.router)
+app.include_router(courses.router)
+app.include_router(favoris.router)
+app.include_router(notifications.router)
+app.include_router(recettes.router)
+app.include_router(prices.router)
+app.include_router(social.router)
+app.include_router(foyer_multi.router)
 app.include_router(gemma.router)
 app.include_router(utilisateur.router)
 
