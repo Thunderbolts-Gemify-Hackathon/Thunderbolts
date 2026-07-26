@@ -1,5 +1,4 @@
 export type StepId =
-  | "compte"
   | "profil"
   | "foyer"
   | "preferences"
@@ -25,12 +24,6 @@ export type StepDef = {
 };
 
 export type OnboardingData = {
-  compte: {
-    nom: string;
-    prenom: string;
-    email: string;
-    date_naissance: string;
-  };
   profil: {
     sexe: string;
     poids: string;
@@ -61,7 +54,6 @@ export type OnboardingData = {
 };
 
 export const initialData: OnboardingData = {
-  compte: { nom: "", prenom: "", email: "", date_naissance: "" },
   profil: {
     sexe: "",
     poids: "",

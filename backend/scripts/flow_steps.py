@@ -11,6 +11,7 @@ async def create_utilisateur(client: httpx.AsyncClient) -> dict:
             "prenom": "Hery",
             "email": f"hery-demo-{date.today().isoformat()}@example.com",
             "date_naissance": "1998-05-12",
+            "mot_de_passe": "Passw0rd!",
         },
     )
     r.raise_for_status()

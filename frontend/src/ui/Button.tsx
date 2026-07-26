@@ -7,6 +7,7 @@ type Props = {
   onPress: () => void;
   variant?: "primary" | "ghost";
   disabled?: boolean;
+  rounded?: boolean;
 };
 
 export function Button({
@@ -14,6 +15,7 @@ export function Button({
   onPress,
   variant = "primary",
   disabled,
+  rounded,
 }: Props) {
   const primary = variant === "primary";
   return (
@@ -23,6 +25,7 @@ export function Button({
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
+        rounded && styles.pill,
         primary ? styles.primary : styles.ghost,
         (pressed || disabled) && { opacity: disabled ? 0.4 : 0.85 },
       ]}
@@ -42,6 +45,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: space.lg,
   },
+  pill: { minHeight: 56, borderRadius: 999 },
   primary: { backgroundColor: colors.brand },
   ghost: {
     backgroundColor: "transparent",

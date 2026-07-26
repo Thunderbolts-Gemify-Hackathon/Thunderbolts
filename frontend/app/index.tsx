@@ -1,13 +1,12 @@
 import { Redirect, useRouter } from "expo-router";
-import { Image, StyleSheet, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useOnboarding } from "@/onboarding/store";
-import { STEP_IDS } from "@/onboarding/steps";
 import { Button } from "@/ui/Button";
 import { CurveBackdrop } from "@/ui/CurveBackdrop";
 import { Body, Brand, Title } from "@/ui/Typography";
-import { colors, space } from "@/theme";
+import { colors, space, type } from "@/theme";
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -35,10 +34,13 @@ export default function WelcomeScreen() {
       </View>
 
       <View style={styles.actions}>
-        <Button
-          label="Commencer"
-          onPress={() => router.push(`/onboarding/${STEP_IDS[0]}`)}
-        />
+        <Button label="Commencer" onPress={() => router.push("/signup")} />
+        <Text style={styles.footerText}>
+          Déjà un compte ?{" "}
+          <Text style={styles.link} onPress={() => router.push("/signin")}>
+            Se connecter
+          </Text>
+        </Text>
       </View>
     </SafeAreaView>
   );
@@ -63,5 +65,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     paddingTop: space.lg,
     paddingBottom: space.lg,
+    gap: space.sm,
   },
+  footerText: { textAlign: "center", color: colors.muted, fontSize: type.body },
+  link: { color: colors.brand, fontWeight: "700" },
 });
