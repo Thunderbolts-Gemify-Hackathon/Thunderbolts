@@ -194,15 +194,13 @@ export default function RecetteDetailScreen() {
           </Pressable>
         ) : null}
         <Pressable onPress={commencerACuisiner} style={styles.actionBtn}>
-          <Feather name="play-circle" size={18} color="#1A1207" />
+          <Feather name="play-circle" size={18} color="#F7F3EA" />
           <Text style={styles.actionLabel}>Commencer à cuisiner</Text>
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
-
-const ORANGE = "#E58F16";
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
@@ -248,9 +246,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm - 2,
     alignItems: "center",
   },
-  tabActive: { backgroundColor: ORANGE },
+  tabActive: { backgroundColor: colors.brand },
   tabText: { fontSize: type.body, color: colors.muted, fontWeight: "600" },
-  tabTextActive: { color: "#1A1207" },
+  tabTextActive: { color: "#F7F3EA" },
   list: { gap: 4, marginTop: space.sm },
   ingredientRow: {
     flexDirection: "row",
@@ -267,11 +265,11 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: ORANGE,
+    backgroundColor: colors.brandSoft,
     alignItems: "center",
     justifyContent: "center",
   },
-  etapeNumeroText: { color: "#1A1207", fontWeight: "800", fontSize: type.small },
+  etapeNumeroText: { color: colors.brand, fontWeight: "800", fontSize: type.small },
   etapeBody: { flex: 1, gap: 2 },
   etapeTitre: { fontSize: type.body, color: colors.ink, fontWeight: "600", lineHeight: 21 },
   etapeIngredients: { fontSize: type.small, color: colors.muted },
@@ -311,11 +309,11 @@ const styles = StyleSheet.create({
     gap: space.sm,
     minHeight: 56,
     borderRadius: 999,
-    backgroundColor: ORANGE,
+    backgroundColor: colors.brand,
     alignItems: "center",
     justifyContent: "center",
   },
-  actionLabel: { fontSize: 16, fontWeight: "700", color: "#1A1207" },
+  actionLabel: { fontSize: 16, fontWeight: "700", color: "#F7F3EA" },
   etapesLoading: { flexDirection: "row", alignItems: "center", gap: space.sm },
   retry: { color: colors.brand, fontWeight: "700", textDecorationLine: "underline" },
   notFound: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, padding: space.lg },

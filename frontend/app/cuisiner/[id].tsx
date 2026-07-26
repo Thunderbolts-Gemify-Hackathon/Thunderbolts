@@ -27,7 +27,6 @@ import { useEtapesRecette } from "@/lib/useEtapesRecette";
 import { useSession } from "@/session/SessionContext";
 import { colors, radius, space, type } from "@/theme";
 
-const ORANGE = "#E58F16";
 const GUIDE_VU_KEY = "kalitao.cuisine.guideVu";
 const TIMER_PRESETS_MIN = [1, 3, 5, 10];
 
@@ -325,7 +324,7 @@ export default function ModeCuisineScreen() {
           disabled={!step}
         >
           <Text style={styles.nextLabel}>{isLast ? "Terminer" : "Étape suivante"}</Text>
-          <Feather name={isLast ? "check" : "chevron-right"} size={20} color="#1A1207" />
+          <Feather name={isLast ? "check" : "chevron-right"} size={20} color="#F7F3EA" />
         </Pressable>
       </View>
 
@@ -444,8 +443,8 @@ const styles = StyleSheet.create({
   headerStep: { fontSize: type.small, color: colors.muted, fontWeight: "600" },
   dotsRow: { flexDirection: "row", justifyContent: "center", gap: 6, paddingVertical: space.sm },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "rgba(0,0,0,0.15)" },
-  dotActive: { backgroundColor: ORANGE, width: 20 },
-  dotDone: { backgroundColor: colors.brand },
+  dotActive: { backgroundColor: colors.brand, width: 20 },
+  dotDone: { backgroundColor: colors.brandSoft },
   content: {
     flexGrow: 1,
     paddingHorizontal: space.lg,
@@ -506,7 +505,7 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     overflow: "hidden",
     borderWidth: 3,
-    borderColor: ORANGE,
+    borderColor: colors.brand,
   },
   cameraHint: {
     fontSize: 11,
@@ -561,11 +560,11 @@ const styles = StyleSheet.create({
     gap: space.sm,
     minHeight: 56,
     borderRadius: 999,
-    backgroundColor: ORANGE,
+    backgroundColor: colors.brand,
     alignItems: "center",
     justifyContent: "center",
   },
-  nextLabel: { fontSize: 16, fontWeight: "700", color: "#1A1207" },
+  nextLabel: { fontSize: 16, fontWeight: "700", color: "#F7F3EA" },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -598,11 +597,11 @@ const styles = StyleSheet.create({
     width: "100%",
     minHeight: 50,
     borderRadius: 999,
-    backgroundColor: ORANGE,
+    backgroundColor: colors.brand,
     alignItems: "center",
     justifyContent: "center",
   },
-  guideBtnLabel: { fontSize: 16, fontWeight: "700", color: "#1A1207" },
+  guideBtnLabel: { fontSize: 16, fontWeight: "700", color: "#F7F3EA" },
   quitCard: {
     width: "100%",
     maxWidth: 340,

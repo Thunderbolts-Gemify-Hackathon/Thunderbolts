@@ -45,10 +45,8 @@ const SLIDES: Slide[] = [
   },
 ];
 
-/** Palette dédiée à cet écran, calquée pixel pour pixel sur la maquette fournie. */
+/** Fond illustration — le reste suit la palette globale (vert marque). */
 const BLOB = "#FEE4C3";
-const ORANGE = "#E58F16";
-const ORANGE_DOT = "#F28600";
 const DOT_INACTIVE = "#E6E6E6";
 
 export default function WelcomeTourScreen() {
@@ -168,7 +166,7 @@ const styles = StyleSheet.create({
     backgroundColor: DOT_INACTIVE,
   },
   dotActive: {
-    backgroundColor: ORANGE_DOT,
+    backgroundColor: colors.brand,
   },
   content: {
     gap: space.sm,
@@ -201,10 +199,10 @@ const styles = StyleSheet.create({
   continueBtn: {
     minHeight: 56,
     borderRadius: 999,
-    backgroundColor: ORANGE,
+    backgroundColor: colors.brand,
     alignItems: "center",
     justifyContent: "center",
   },
-  continueLabel: { fontSize: 17, fontWeight: "700", color: "#1A1207" },
+  continueLabel: { fontSize: 17, fontWeight: "700", color: "#F7F3EA" },
   skip: { color: colors.ink, fontWeight: "600", fontSize: 15, textAlign: "center" },
 });
