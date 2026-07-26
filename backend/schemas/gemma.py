@@ -15,6 +15,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     historique: list[ChatMessage] = Field(default_factory=list)
+    voice: bool = False
 
 
 class ToolCallTrace(BaseModel):
@@ -32,8 +33,14 @@ class RemedeResponse(BaseModel):
     remede: str
 
 
+class EtapeRecette(BaseModel):
+    numero: int
+    titre: str
+    ingredients: list[str] = Field(default_factory=list)
+
+
 class EtapesRecetteResponse(BaseModel):
-    etapes: str
+    etapes: list[EtapeRecette]
 
 
 class DirectiveCoursesRequest(BaseModel):

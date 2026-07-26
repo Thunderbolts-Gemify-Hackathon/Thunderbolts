@@ -37,6 +37,13 @@ def get_db():
 def init_db() -> None:
     from backend import models  # noqa: F401
     from backend.db_migrate import migrate_sqlite
+    from backend.services.market_service import backfill_offres_manquantes
 
     Base.metadata.create_all(bind=engine)
     migrate_sqlite(engine)
+
+    db = SessionLocal()
+    try:
+        backfill_offres_manquantes(db)
+    finally:
+        db.close()

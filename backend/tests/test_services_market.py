@@ -3,7 +3,12 @@ from datetime import date
 from backend.models.ingredient import Ingredient
 from backend.models.itineraire import Itineraire
 from backend.models.point_de_vente import Offre, PointDeVente
-from backend.services.market_service import find_nearby_market, get_meilleur_compromis, haversine
+from backend.services.market_service import (
+    find_nearby_market,
+    find_nearest_points_de_vente,
+    get_meilleur_compromis,
+    haversine,
+)
 
 ORIGIN_LAT = -18.9102
 ORIGIN_LON = 47.5256
@@ -60,3 +65,41 @@ def test_get_meilleur_compromis(db_session):
     _seed_markets(db_session, poulet.id)
     meilleur = get_meilleur_compromis(db_session, poulet.id, ORIGIN_LAT, ORIGIN_LON)
     assert meilleur.point_de_vente.nom == "Epicerie 67ha"
+
+
+def test_find_nearest_points_de_vente_sans_ingredient(db_session):
+    poulet = Ingredient(nom="poulet", unite_defaut="g")
+    db_session.add(poulet)
+    db_session.flush()
+    _seed_markets(db_session, poulet.id)
+
+    proches = find_nearest_points_de_vente(db_session, ORIGIN_LAT, ORIGIN_LON, rayon_km=10)
+    noms = [p.point_de_vente.nom for p in proches]
+    assert "Super loin" not in noms
+    # le plus proche et sûr d'abord, le trajet a_eviter relégué en dernier
+    assert proches[0].point_de_vente.nom == "Score Analakely"
+    assert proches[-1].point_de_vente.nom == "Marche sombre"
+    assert proches[-1].deprioritise is True
+    assert all(p.distance_km >= 0 for p in proches)
+
+
+def test_find_nearest_points_de_vente_filtre_par_type(db_session):
+    poulet = Ingredient(nom="poulet", unite_defaut="g")
+    db_session.add(poulet)
+    db_session.flush()
+    _seed_markets(db_session, poulet.id)
+
+    proches = find_nearest_points_de_vente(
+        db_session, ORIGIN_LAT, ORIGIN_LON, rayon_km=10, type_souhaite="epicerie"
+    )
+    assert {p.point_de_vente.type for p in proches} == {"epicerie"}
+
+
+def test_find_nearest_points_de_vente_limit(db_session):
+    poulet = Ingredient(nom="poulet", unite_defaut="g")
+    db_session.add(poulet)
+    db_session.flush()
+    _seed_markets(db_session, poulet.id)
+
+    proches = find_nearest_points_de_vente(db_session, ORIGIN_LAT, ORIGIN_LON, rayon_km=10, limit=1)
+    assert len(proches) == 1

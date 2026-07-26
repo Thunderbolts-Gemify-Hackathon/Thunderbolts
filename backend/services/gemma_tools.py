@@ -37,6 +37,23 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "find_nearest_supermarkets",
+        "description": (
+            "Points de vente les plus proches de la localisation du profil, sans filtre "
+            "par ingrédient — à utiliser quand l'utilisateur demande juste où se trouve "
+            "le marché/supermarché le plus proche, ou comment y aller, sans produit précis."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "type_souhaite": {
+                    "type": "string",
+                    "description": "Optionnel : grande_surface, epicerie, marche, grossiste",
+                },
+            },
+        },
+    },
+    {
         "name": "check_expiry",
         "description": "Ingrédients du stock proches de la péremption",
         "parameters": {"type": "object", "properties": {}},
@@ -104,6 +121,21 @@ def _dispatch(db: Session, profil_id: str, tool_name: str, arguments: dict) -> A
             ingredient_id=ingredient_id,
             lat=loc.latitude,
             lon=loc.longitude,
+            profil_id=profil_id,
+        )
+
+    if tool_name == "find_nearest_supermarkets":
+        from backend.models.localisation import Localisation
+        from backend.services.market_service import find_nearest_points_de_vente
+
+        loc = db.query(Localisation).filter(Localisation.profil_id == profil_id).first()
+        if not loc:
+            raise ValueError("Localisation manquante pour ce profil")
+        return find_nearest_points_de_vente(
+            db,
+            lat=loc.latitude,
+            lon=loc.longitude,
+            type_souhaite=arguments.get("type_souhaite"),
             profil_id=profil_id,
         )
 

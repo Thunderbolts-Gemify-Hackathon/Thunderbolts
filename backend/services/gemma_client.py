@@ -45,14 +45,25 @@ class GemmaClient:
         self.timeout = timeout
         self.prefer_native_tools = prefer_native_tools
 
-    def chat(self, messages: list[dict], tools: list[dict] | None = None) -> dict:
+    def chat(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        *,
+        json_mode: bool = False,
+    ) -> dict:
+        """`json_mode=True` contraint le modèle à répondre en JSON valide (grammaire
+        Ollama `format: "json"` / `responseMimeType` Gemini) — bien plus fiable qu'un
+        simple "réponds en JSON" dans le prompt pour parser la réponse ensuite."""
         try:
-            return self._chat_ollama(messages, tools)
+            return self._chat_ollama(messages, tools, json_mode=json_mode)
         except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError):
             pass
-        return self._chat_gemma4(messages, tools)
+        return self._chat_gemma4(messages, tools, json_mode=json_mode)
 
-    def _chat_ollama(self, messages: list[dict], tools: list[dict] | None) -> dict:
+    def _chat_ollama(
+        self, messages: list[dict], tools: list[dict] | None, *, json_mode: bool = False
+    ) -> dict:
         use_native = bool(tools) and self.prefer_native_tools
         if tools and not use_native:
             payload_messages = self._messages_with_tool_prompt(messages, tools)
@@ -69,6 +80,8 @@ class GemmaClient:
         }
         if payload_tools:
             payload["tools"] = payload_tools
+        if json_mode and not payload_tools:
+            payload["format"] = "json"
 
         try:
             with httpx.Client(timeout=self.timeout) as client:
@@ -132,7 +145,9 @@ class GemmaClient:
     def _gemma4_url(self) -> str:
         return f"{GEMMA4_API_BASE}/{self.gemma4_model}:generateContent"
 
-    def _chat_gemma4(self, messages: list[dict], tools: list[dict] | None) -> dict:
+    def _chat_gemma4(
+        self, messages: list[dict], tools: list[dict] | None, *, json_mode: bool = False
+    ) -> dict:
         if not self.gemma4_api_key:
             raise RuntimeError("GEMMA4_API_KEY manquante — fallback API impossible")
 
@@ -151,6 +166,8 @@ class GemmaClient:
             body["systemInstruction"] = {"parts": [{"text": system}]}
         if api_tools:
             body["tools"] = api_tools
+        if json_mode and not api_tools:
+            body["generationConfig"] = {"responseMimeType": "application/json"}
 
         with httpx.Client(timeout=30.0) as client:
             response = client.post(

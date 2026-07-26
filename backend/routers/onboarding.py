@@ -1,3 +1,5 @@
+from typing import Any, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -14,6 +16,24 @@ from backend.schemas.profil import ProfilCreate, ProfilOut
 from backend.services import onboarding_service, onboarding_suite
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
+
+
+@router.get("/mine/complet")
+def get_mon_profil_complet(
+    utilisateur: Utilisateur = Depends(get_current_utilisateur),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Réhydrate une session (login ou relance d'app) : retrouve le profil de
+    l'utilisateur authentifié (sans connaître son id à l'avance) et renvoie
+    l'état complet de son onboarding (foyer/préférences/budget/localisation,
+    chacun `null` si l'étape n'a pas encore été faite — permet au frontend de
+    savoir où reprendre sans redémarrer tout le parcours)."""
+    profil: Optional[Profil] = (
+        db.query(Profil).filter(Profil.utilisateur_id == utilisateur.id).first()
+    )
+    if not profil:
+        raise HTTPException(status_code=404, detail="Aucun profil pour cet utilisateur")
+    return onboarding_suite.get_profil_complet(db, profil.id)
 
 
 @router.post("/profil", response_model=ProfilOut, status_code=201)

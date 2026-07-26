@@ -27,6 +27,15 @@ class MarketMatchOut(BaseModel):
     deprioritise: bool = False
 
 
+class PointDeVenteProcheOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    point_de_vente: PointDeVenteOut
+    distance_km: float
+    itineraire: Optional[ItineraireOut] = None
+    deprioritise: bool = False
+
+
 class RuptureOut(BaseModel):
     ingredient: IngredientOut
     quantite_manquante: float

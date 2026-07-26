@@ -7,6 +7,7 @@ from backend.models.ingredient import Ingredient
 from backend.models.profil import Profil
 from backend.models.stock import IngredientStock, Stock
 from backend.schemas.stock import IngredientStockUpsert, StockCreate
+from backend.services.units import convert_quantity
 
 
 def _stock_charge(db: Session, profil_id: str) -> Stock | None:
@@ -144,6 +145,72 @@ def update_stock(
     return _ajuster_stock(
         db, profil_id, ingredient_id, -quantite_a_deduire, commit=commit, clamp_zero=True
     )
+
+
+def _quantite_dans_unite_stock(
+    db: Session,
+    profil_id: str,
+    ingredient_id: str,
+    quantite: float,
+    unite_recette: str | None,
+) -> float:
+    """Convertit une quantité recette vers l'unité de la ligne de stock.
+
+    Si l'ingrédient n'est pas encore en stock, on crée une ligne à 0 dans l'unité
+    de la recette (évite un 404 brutal au moment de valider un repas).
+    """
+    try:
+        ligne = _get_ingredient_stock(db, profil_id, ingredient_id)
+    except HTTPException as exc:
+        if exc.status_code != 404:
+            raise
+        upsert_ingredient_stock(
+            db,
+            profil_id,
+            IngredientStockUpsert(
+                ingredient_id=ingredient_id,
+                quantite_disponible=0.0,
+                unite=unite_recette or "g",
+            ),
+        )
+        return float(quantite)
+
+    converted = convert_quantity(quantite, unite_recette, ligne.unite)
+    if converted is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unités incompatibles pour l'ingrédient {ingredient_id}: "
+                f"recette={unite_recette!r}, stock={ligne.unite!r}"
+            ),
+        )
+    return converted
+
+
+def deduire_pour_recette(
+    db: Session,
+    profil_id: str,
+    ingredient_id: str,
+    quantite: float,
+    unite_recette: str | None,
+    *,
+    commit: bool = True,
+) -> IngredientStock:
+    qty = _quantite_dans_unite_stock(db, profil_id, ingredient_id, quantite, unite_recette)
+    return update_stock(db, profil_id, ingredient_id, qty, commit=commit)
+
+
+def recrediter_pour_recette(
+    db: Session,
+    profil_id: str,
+    ingredient_id: str,
+    quantite: float,
+    unite_recette: str | None,
+    *,
+    commit: bool = True,
+) -> IngredientStock:
+    qty = _quantite_dans_unite_stock(db, profil_id, ingredient_id, quantite, unite_recette)
+    return recrediter_stock(db, profil_id, ingredient_id, qty, commit=commit)
 
 
 def remove_ingredient_stock(db: Session, profil_id: str, ingredient_id: str) -> None:

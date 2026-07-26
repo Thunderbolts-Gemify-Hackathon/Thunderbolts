@@ -22,6 +22,7 @@ from backend.schemas.point_de_vente import PointDeVenteOut
 from backend.services.gemma_client import GemmaClient
 from backend.services.market_service import find_nearby_market
 from backend.services.stock_service import get_stock_profil
+from backend.services.units import convert_quantity, to_base
 
 JOURS_PAR_PERIODE = {"jour": 1, "semaine": 7, "mois": 30}
 
@@ -49,8 +50,8 @@ def generer_liste_courses_periode(
             unite_par_ingredient[ligne.ingredient_id] = ligne.unite
             ingredients_map[ligne.ingredient_id] = ligne.ingredient
 
-    stock_dispo = {
-        ligne.ingredient_id: float(ligne.quantite_disponible)
+    stock_lignes = {
+        ligne.ingredient_id: (float(ligne.quantite_disponible), ligne.unite)
         for ligne in get_stock_profil(db, profil_id)
     }
 
@@ -59,8 +60,22 @@ def generer_liste_courses_periode(
         requis.items(), key=lambda pair: ingredients_map[pair[0]].nom
     ):
         ingredient = ingredients_map[ingredient_id]
-        disponible = stock_dispo.get(ingredient_id, 0.0)
-        a_acheter = max(0.0, qte_requise - disponible)
+        unite = unite_par_ingredient.get(ingredient_id, ingredient.unite_defaut)
+        stock = stock_lignes.get(ingredient_id)
+        if stock:
+            dispo_en_unite_recette = convert_quantity(stock[0], stock[1], unite)
+            if dispo_en_unite_recette is None:
+                # Unités incompatibles (ex. g vs ml) : on ne peut pas soustraire.
+                disponible = 0.0
+                a_acheter = qte_requise
+            else:
+                disponible = dispo_en_unite_recette
+                req_base, _ = to_base(qte_requise, unite)
+                dispo_base, _ = to_base(disponible, unite)
+                a_acheter = max(0.0, qte_requise - disponible) if req_base > dispo_base else 0.0
+        else:
+            disponible = 0.0
+            a_acheter = qte_requise
         items.append(
             {
                 "ingredient": ingredient,
@@ -68,7 +83,7 @@ def generer_liste_courses_periode(
                 "quantite_totale_requise": round(qte_requise, 2),
                 "quantite_disponible": round(disponible, 2),
                 "quantite_a_acheter": round(a_acheter, 2),
-                "unite": unite_par_ingredient.get(ingredient_id, ingredient.unite_defaut),
+                "unite": unite,
                 "statut": "disponible" if a_acheter <= 0 else "à acheter",
             }
         )

@@ -63,7 +63,9 @@ def chat(
     """Chat libre avec Gemma sur le profil (mêmes règles/outils que la génération de planning)."""
     profil_complet = onboarding_suite.get_profil_complet(db, profil.id)
 
-    messages = [{"role": "system", "content": build_system_prompt(profil_complet)}]
+    messages = [
+        {"role": "system", "content": build_system_prompt(profil_complet, voice=payload.voice)}
+    ]
     messages += [{"role": m.role, "content": m.content} for m in payload.historique]
     messages.append({"role": "user", "content": payload.message})
 

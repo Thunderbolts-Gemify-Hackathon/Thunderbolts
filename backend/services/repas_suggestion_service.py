@@ -15,7 +15,7 @@ from backend.models.recette import Recette
 from backend.services import onboarding_suite, recipe_rag
 from backend.services.gemma_client import GemmaClient
 from backend.services.prompts import build_system_prompt
-from backend.services.stock_service import get_stock_profil
+from backend.services.stock_coverage import avec_couverture, stock_map
 
 POOL_SIZE = 6
 
@@ -54,12 +54,9 @@ def suggerer_repas(
     if not candidats:
         raise ValueError("Aucune recette compatible avec les allergies/tabous du profil")
 
-    stock_dispo = {
-        ligne.ingredient_id: float(ligne.quantite_disponible)
-        for ligne in get_stock_profil(db, profil_id)
-    }
+    stock_dispo = stock_map(db, profil_id)
     scored = sorted(
-        (_avec_couverture(r, stock_dispo) for r in candidats),
+        (avec_couverture(r, stock_dispo) for r in candidats),
         key=lambda r: -r["_couverture"],
     )
     pool = scored[:POOL_SIZE]
@@ -81,20 +78,6 @@ def suggerer_repas(
         "couverture_stock": round(retenue["_couverture"], 2),
         "ingredients_manquants": retenue["_manquants"],
     }
-
-
-def _avec_couverture(recette: dict[str, Any], stock_dispo: dict[str, float]) -> dict[str, Any]:
-    lignes = recette["ingredients"]
-    if not lignes:
-        return {**recette, "_couverture": 1.0, "_manquants": []}
-    manquants = []
-    couverts = 0
-    for ligne in lignes:
-        if stock_dispo.get(ligne["ingredient_id"], 0.0) >= ligne["poids_requis"]:
-            couverts += 1
-        else:
-            manquants.append(ligne["nom"])
-    return {**recette, "_couverture": couverts / len(lignes), "_manquants": manquants}
 
 
 def _message_par_defaut(recette: dict[str, Any]) -> str:
