@@ -49,7 +49,9 @@ export default function CoursesScreen() {
 
   const [periode, setPeriode] = useState<PeriodeCourses>("semaine");
   const [items, setItems] = useState<ListeCoursesItem[]>([]);
-  const [estimation, setEstimation] = useState<EstimationCoutListe | null>(null);
+  const [estimation, setEstimation] = useState<EstimationCoutListe | null>(
+    null,
+  );
   const [joursCouverts, setJoursCouverts] = useState(7);
   const [filter, setFilter] = useState<Filter>("acheter");
   const [loading, setLoading] = useState(true);
@@ -69,7 +71,7 @@ export default function CoursesScreen() {
         profilId,
         token,
         dateDebut,
-        periode
+        periode,
       );
       setHasPlanning(true);
       setItems(data.items);
@@ -95,7 +97,7 @@ export default function CoursesScreen() {
 
   const aAcheter = useMemo(
     () => items.filter((i) => isAAcheter(i.statut)),
-    [items]
+    [items],
   );
   const visible = filter === "acheter" ? aAcheter : items;
 
@@ -113,14 +115,18 @@ export default function CoursesScreen() {
             variant="ghost"
             onPress={() => router.push("/planning" as Href)}
           />
-          <Button label="Retour" variant="ghost" onPress={() => router.back()} />
+          <Button
+            label="Retour"
+            variant="ghost"
+            onPress={() => router.back()}
+          />
         </View>
       }
     >
       <Title>Liste de courses</Title>
       <Body>
-        Du {dateDebut} · {joursCouverts} jour{joursCouverts > 1 ? "s" : ""}. Besoin
-        du planning moins ton stock.
+        Du {dateDebut} · {joursCouverts} jour{joursCouverts > 1 ? "s" : ""}.
+        Besoin du planning moins ton stock.
       </Body>
 
       <View style={styles.filters}>
@@ -155,8 +161,8 @@ export default function CoursesScreen() {
         <>
           <View style={styles.summary}>
             <Text style={styles.summaryText}>
-              {aAcheter.length} a acheter · {items.length - aAcheter.length} deja
-              en stock
+              {aAcheter.length} a acheter · {items.length - aAcheter.length}{" "}
+              deja en stock
             </Text>
             {estimation ? (
               <Text style={styles.costText}>
@@ -232,7 +238,7 @@ export default function CoursesScreen() {
               <Pressable
                 onPress={() =>
                   router.push(
-                    `/map?ingredientId=${encodeURIComponent(item.ingredient.id)}` as Href
+                    `/map?ingredientId=${encodeURIComponent(item.ingredient.id)}` as Href,
                   )
                 }
                 style={styles.action}
