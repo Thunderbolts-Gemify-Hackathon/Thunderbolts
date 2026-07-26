@@ -15,6 +15,7 @@ build/
 !docs/**/*.md
 logs/*.log
 venv/
+.claude
 
 # Frontend (Expo) — tracked under frontend/, ignore local junk
 frontend/node_modules/
