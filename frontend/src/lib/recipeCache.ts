@@ -1,3 +1,4 @@
+import type { EtapeRecette } from "@/api/chat";
 import type { Recette } from "@/api/repas";
 
 /**
@@ -15,6 +16,7 @@ export type CachedRepasContext = {
 
 const recettes = new Map<string, Recette>();
 const contexts = new Map<string, CachedRepasContext>();
+const etapesParRecette = new Map<string, EtapeRecette[]>();
 
 export function cacheRecette(recette: Recette, context: CachedRepasContext = {
   repasId: null,
@@ -32,4 +34,13 @@ export function getCachedRecette(id: string): Recette | undefined {
 
 export function getCachedContext(id: string): CachedRepasContext | undefined {
   return contexts.get(id);
+}
+
+/** Partage les étapes déjà générées par Gemma entre l'écran détail et le mode cuisine. */
+export function cacheEtapes(recetteId: string, etapes: EtapeRecette[]) {
+  etapesParRecette.set(recetteId, etapes);
+}
+
+export function getCachedEtapes(recetteId: string): EtapeRecette[] | undefined {
+  return etapesParRecette.get(recetteId);
 }

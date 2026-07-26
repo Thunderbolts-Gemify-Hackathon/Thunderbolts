@@ -60,7 +60,13 @@ export function postSuggestionRemede(profilId: string, token: string) {
   });
 }
 
-export type EtapesRecette = { etapes: string };
+export type EtapeRecette = {
+  numero: number;
+  titre: string;
+  ingredients: string[];
+};
+
+export type EtapesRecette = { etapes: EtapeRecette[] };
 
 /**
  * Explication d'une recette en étapes courtes. Volontairement séparé de

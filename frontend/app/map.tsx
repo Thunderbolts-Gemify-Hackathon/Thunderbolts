@@ -369,6 +369,11 @@ export default function MapScreen() {
                 recommended={item.point_de_vente.id === recommended?.point_de_vente.id}
                 width={cardWidth}
                 onVoirTrajet={() => focusPoint(item.point_de_vente.id)}
+                real={
+                  routeInfo && routeInfo.id === item.point_de_vente.id
+                    ? { distanceM: routeInfo.distanceM, durationS: routeInfo.durationS }
+                    : null
+                }
               />
             )}
           />

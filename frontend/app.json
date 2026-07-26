@@ -47,6 +47,12 @@
         {
           "locationWhenInUsePermission": "Kaly Tao utilise ta position pour trouver les marchés les plus proches de chez toi."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Kaly Tao utilise la caméra pour passer les étapes de recette sans toucher l'écran (mode cuisine mains libres)."
+        }
       ]
     ],
     "experiments": {

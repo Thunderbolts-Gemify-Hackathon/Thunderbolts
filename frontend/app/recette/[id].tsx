@@ -1,17 +1,16 @@
 import { Feather } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { getEtapesRecette } from "@/api/chat";
 import { ApiError } from "@/api/http";
 import { annulerRepas, validerRepas } from "@/api/planning";
 import { useFavori } from "@/lib/favorites";
 import { getCachedContext, getCachedRecette } from "@/lib/recipeCache";
 import { recetteVisual } from "@/lib/recipeVisual";
+import { useEtapesRecette } from "@/lib/useEtapesRecette";
 import { useSession } from "@/session/SessionContext";
-import { AiText } from "@/ui/Markdown";
 import { colors, radius, space, type } from "@/theme";
 
 type Tab = "ingredients" | "instructions";
@@ -29,9 +28,14 @@ export default function RecetteDetailScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [etapes, setEtapes] = useState<string | null>(null);
-  const [etapesLoading, setEtapesLoading] = useState(false);
-  const [etapesError, setEtapesError] = useState<string | null>(null);
+  const profilId = session?.profilId;
+  const token = session?.apiToken;
+  const {
+    etapes,
+    loading: etapesLoading,
+    error: etapesError,
+    fetchEtapes,
+  } = useEtapesRecette(recette?.id, profilId, token, false);
 
   if (!recette) {
     return (
@@ -49,8 +53,6 @@ export default function RecetteDetailScreen() {
   }
 
   const visual = recetteVisual(recette);
-  const token = session?.apiToken;
-  const profilId = session?.profilId;
   const canToggle = Boolean(context?.repasId && token);
   const consomme = statut === "consomme";
 
@@ -73,22 +75,13 @@ export default function RecetteDetailScreen() {
     }
   };
 
-  const demanderEtapes = async () => {
-    if (!profilId || !token || etapesLoading) return;
+  const voirInstructions = () => {
     setTab("instructions");
-    if (etapes) return;
-    setEtapesLoading(true);
-    setEtapesError(null);
-    try {
-      const res = await getEtapesRecette(profilId, token, recette.id);
-      setEtapes(res.etapes);
-    } catch (e) {
-      setEtapesError(
-        e instanceof ApiError ? e.detail : "Etapes indisponibles. Verifie Ollama / Gemma."
-      );
-    } finally {
-      setEtapesLoading(false);
-    }
+    if (!etapes) void fetchEtapes();
+  };
+
+  const commencerACuisiner = () => {
+    router.push(`/cuisiner/${recette.id}` as Href);
   };
 
   return (
@@ -124,7 +117,7 @@ export default function RecetteDetailScreen() {
             </Text>
           </Pressable>
           <Pressable
-            onPress={() => void demanderEtapes()}
+            onPress={voirInstructions}
             style={[styles.tab, tab === "instructions" && styles.tabActive]}
           >
             <Text style={[styles.tabText, tab === "instructions" && styles.tabTextActive]}>
@@ -152,11 +145,23 @@ export default function RecetteDetailScreen() {
                 <Text style={styles.meta}>Kaly Tao prépare les étapes…</Text>
               </View>
             ) : etapes ? (
-              <AiText content={etapes} />
+              etapes.map((etape) => (
+                <View key={etape.numero} style={styles.etapeRow}>
+                  <View style={styles.etapeNumero}>
+                    <Text style={styles.etapeNumeroText}>{etape.numero}</Text>
+                  </View>
+                  <View style={styles.etapeBody}>
+                    <Text style={styles.etapeTitre}>{etape.titre}</Text>
+                    {etape.ingredients.length > 0 ? (
+                      <Text style={styles.etapeIngredients}>{etape.ingredients.join(" · ")}</Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))
             ) : etapesError ? (
               <>
                 <Text style={styles.error}>{etapesError}</Text>
-                <Pressable onPress={() => void demanderEtapes()} hitSlop={8}>
+                <Pressable onPress={() => void fetchEtapes()} hitSlop={8}>
                   <Text style={styles.retry}>Réessayer</Text>
                 </Pressable>
               </>
@@ -188,11 +193,7 @@ export default function RecetteDetailScreen() {
             <Text style={[styles.cookedLabel, consomme && styles.cookedLabelActive]}>Cuisiné ?</Text>
           </Pressable>
         ) : null}
-        <Pressable
-          onPress={() => void demanderEtapes()}
-          disabled={etapesLoading}
-          style={[styles.actionBtn, etapesLoading && { opacity: 0.7 }]}
-        >
+        <Pressable onPress={commencerACuisiner} style={styles.actionBtn}>
           <Feather name="play-circle" size={18} color="#1A1207" />
           <Text style={styles.actionLabel}>Commencer à cuisiner</Text>
         </Pressable>
@@ -261,6 +262,19 @@ const styles = StyleSheet.create({
   ingredientNom: { fontSize: type.body, color: colors.ink },
   ingredientQty: { fontSize: type.body, color: colors.muted },
   instructions: { fontSize: type.body, color: colors.ink, lineHeight: 22, marginTop: space.sm },
+  etapeRow: { flexDirection: "row", gap: space.sm, paddingVertical: space.sm },
+  etapeNumero: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: ORANGE,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  etapeNumeroText: { color: "#1A1207", fontWeight: "800", fontSize: type.small },
+  etapeBody: { flex: 1, gap: 2 },
+  etapeTitre: { fontSize: type.body, color: colors.ink, fontWeight: "600", lineHeight: 21 },
+  etapeIngredients: { fontSize: type.small, color: colors.muted },
   error: {
     color: colors.danger,
     backgroundColor: "#F8E8E4",

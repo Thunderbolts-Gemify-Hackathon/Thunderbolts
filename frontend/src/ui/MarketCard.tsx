@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { formatAr, type MarketMatch } from "@/api/market";
-import { formatTrajet } from "@/lib/travelEstimate";
+import { formatDistanceM, formatDureeS, formatTrajet } from "@/lib/travelEstimate";
 import { speak } from "@/lib/speech";
 import { colors, radius, space, type } from "@/theme";
 
@@ -20,16 +20,28 @@ const SECURITE_COLOR: Record<string, string> = {
   inconnu: colors.muted,
 };
 
+type RouteReelle = { distanceM: number; durationS: number };
+
 type Props = {
   match: MarketMatch;
   recommended: boolean;
   width: number;
   onVoirTrajet: () => void;
+  /** Trajet réel (routage OSRM) une fois calculé pour ce point de vente précis —
+   * remplace l'estimation seedée pour éviter d'afficher deux distances différentes
+   * pour le même marché (carte vs carrousel). */
+  real?: RouteReelle | null;
 };
 
-export function MarketCard({ match, recommended, width, onVoirTrajet }: Props) {
+export function MarketCard({ match, recommended, width, onVoirTrajet, real }: Props) {
   const { point_de_vente: pdv, itineraire, prix, deprioritise } = match;
   const securite = itineraire?.niveau_securite ?? "inconnu";
+
+  const trajetLabel = real
+    ? `Trajet réel : ${formatDistanceM(real.distanceM)} · ${formatDureeS(real.durationS)}`
+    : itineraire
+      ? formatTrajet(itineraire.distance, itineraire.mode_deplacement)
+      : null;
 
   const onOuvrirMaps = () => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${pdv.latitude},${pdv.longitude}`;
@@ -37,10 +49,15 @@ export function MarketCard({ match, recommended, width, onVoirTrajet }: Props) {
   };
 
   const onEcouter = () => {
+    const distancePhrase = real
+      ? `${formatDistanceM(real.distanceM)}, ${SECURITE_LABEL[securite]}.`
+      : itineraire
+        ? `${itineraire.distance} kilometres, ${SECURITE_LABEL[securite]}.`
+        : "";
     const phrase = [
       `${pdv.nom}.`,
       `Prix indicatif ${Math.round(prix)} ariary.`,
-      itineraire ? `${itineraire.distance} kilometres, ${SECURITE_LABEL[securite]}.` : "",
+      distancePhrase,
       deprioritise ? "Attention, trajet a eviter." : "",
     ]
       .filter(Boolean)
@@ -67,12 +84,11 @@ export function MarketCard({ match, recommended, width, onVoirTrajet }: Props) {
 
       <Text style={styles.prix}>{formatAr(prix)}</Text>
 
-      {itineraire ? (
+      {trajetLabel ? (
         <View style={styles.trajetRow}>
           <View style={[styles.dot, { backgroundColor: SECURITE_COLOR[securite] }]} />
-          <Text style={styles.trajet}>
-            {formatTrajet(itineraire.distance, itineraire.mode_deplacement)}
-          </Text>
+          <Text style={styles.trajet}>{trajetLabel}</Text>
+          {real ? <Feather name="check-circle" size={12} color={colors.ok} /> : null}
         </View>
       ) : null}
 

@@ -25,7 +25,15 @@ const TABS: Tab[] = [
   { key: "reglages", route: "/reglages", outline: "settings-outline", filled: "settings" },
 ];
 
-const HIDDEN_PREFIXES = ["/signup", "/signin", "/welcome", "/onboarding", "/recette", "/map"];
+const HIDDEN_PREFIXES = [
+  "/signup",
+  "/signin",
+  "/welcome",
+  "/onboarding",
+  "/recette",
+  "/map",
+  "/cuisiner",
+];
 
 export function BottomNavBar() {
   const pathname = usePathname();
