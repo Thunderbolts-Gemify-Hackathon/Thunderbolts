@@ -38,7 +38,7 @@ def generer_planning(
         {"role": "system", "content": build_system_prompt(profil_complet)},
         {"role": "user", "content": build_planning_user_prompt(nb_jours, date_debut, candidats)},
     ]
-    repas_json = _demander_planning_json(db, client, messages)
+    repas_json = _demander_planning_json(db, client, messages, profil_id)
 
     return planning_service.create_planning_from_ia(
         db, profil_id, periode, date_debut, repas_json, candidats
@@ -67,13 +67,14 @@ def _demander_planning_json(
     db: Session,
     client: GemmaClient,
     messages: list[dict[str, Any]],
+    profil_id: str,
 ) -> list[dict[str, Any]]:
-    contenu = run_tool_loop(db, client, messages)
+    contenu = run_tool_loop(db, client, messages, profil_id=profil_id)
     repas_json = parse_json_list(contenu)
     if repas_json is None:
         print(f"[planning] JSON invalide, 1er essai : {contenu[:500]!r}")
         messages.append({"role": "user", "content": CORRECTION_JSON})
-        contenu = run_tool_loop(db, client, messages)
+        contenu = run_tool_loop(db, client, messages, profil_id=profil_id)
         repas_json = parse_json_list(contenu)
     if repas_json is None:
         print(f"[planning] JSON invalide après retry : {contenu[:500]!r}")

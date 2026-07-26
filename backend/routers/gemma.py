@@ -61,7 +61,9 @@ def chat(
 
     tool_calls: list[dict] = []
     try:
-        reponse = run_tool_loop(db, GemmaClient(), messages, trace=tool_calls)
+        reponse = run_tool_loop(
+            db, GemmaClient(), messages, profil_id=profil.id, trace=tool_calls
+        )
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 

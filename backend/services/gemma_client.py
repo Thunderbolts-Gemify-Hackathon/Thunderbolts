@@ -18,11 +18,10 @@ if load_dotenv:
 
 OLLAMA_TIMEOUT_S = float(os.getenv("OLLAMA_TIMEOUT_S", "100"))
 GEMMA4_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
-# Accolades JSON doublées pour str.format (seul {tools_json} est substitué).
 TOOL_JSON_INSTRUCTION = (
     "Réponds uniquement en JSON valide, sans markdown : "
-    '{{"tool_call": {{"name": "<outil>", "arguments": {{}}}}}} '
-    'ou {{"message": "<texte>"}}.\n\nOutils :\n{tools_json}'
+    '{"tool_call": {"name": "<outil>", "arguments": {}}} '
+    'ou {"message": "<texte>"}.\n\nOutils :\n{tools_json}'
 )
 
 
@@ -66,6 +65,7 @@ class GemmaClient:
             "model": self.ollama_model,
             "messages": payload_messages,
             "stream": False,
+            "think": False,
         }
         if payload_tools:
             payload["tools"] = payload_tools
@@ -87,6 +87,7 @@ class GemmaClient:
             "messages": self._messages_with_tool_prompt(messages, tools),
             "stream": False,
             "format": "json",
+            "think": False,
         }
         with httpx.Client(timeout=self.timeout) as client:
             response = client.post(f"{self.ollama_host}/api/chat", json=payload)
@@ -336,3 +337,30 @@ class GemmaClient:
                 "tool_calls": None,
             }
         return None
+    
+    def chat_audio(self, messages: list[dict], audio_base64: str, mime_type: str) -> dict:
+        """Chat multimodal (audio + texte) via l'API Gemma4/Gemini — Ollama local n'a pas
+        de modèle audio ici, donc ce chemin appelle directement l'API distante."""
+        if not self.gemma4_api_key:
+            raise RuntimeError("GEMMA4_API_KEY manquante — la voix nécessite l'API Gemma4")
+
+        contents, system = self._to_gemma4_contents(messages)
+        if contents and contents[-1]["role"] == "user":
+            contents[-1]["parts"].append(
+                {"inlineData": {"mimeType": mime_type, "data": audio_base64}}
+            )
+
+        body: dict[str, Any] = {"contents": contents}
+        if system:
+            body["systemInstruction"] = {"parts": [{"text": system}]}
+
+        with httpx.Client(timeout=60.0) as client:
+            response = client.post(
+                self._gemma4_url(), params={"key": self.gemma4_api_key}, json=body
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        return self._normalize_gemma4(data)
+
+

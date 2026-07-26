@@ -19,6 +19,7 @@ def run_tool_loop(
     client: GemmaClient,
     messages: list[dict[str, Any]],
     *,
+    profil_id: str,
     tools: list[dict[str, Any]] | None = None,
     max_iterations: int = MAX_TOOL_ITERATIONS,
     trace: list[dict[str, Any]] | None = None,
@@ -35,10 +36,19 @@ def run_tool_loop(
         if not tool_calls:
             return message.get("content") or ""
 
-        messages.append({"role": "assistant", "content": message.get("content") or ""})
+        messages.append(
+            {
+                "role": "assistant",
+                "content": message.get("content") or "",
+                "tool_calls": [
+                    {"function": {"name": tc["name"], "arguments": tc.get("arguments") or {}}}
+                    for tc in tool_calls
+                ],
+            }
+        )
         for tool_call in tool_calls:
             arguments = tool_call.get("arguments") or {}
-            resultat = execute_tool_call(db, tool_call["name"], arguments)
+            resultat = execute_tool_call(db, profil_id, tool_call["name"], arguments)
             if trace is not None:
                 trace.append({"name": tool_call["name"], "arguments": arguments, "result": resultat})
             messages.append(

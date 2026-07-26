@@ -9,6 +9,10 @@ from sqlalchemy.orm import Session
 
 LOG_FILE = Path(__file__).resolve().parents[2] / "logs" / "tool_calls.log"
 
+# profil_id, ingredient UUID et coordonnées ne sont jamais fournis par le modèle :
+# il ne les connaît pas et les invente sinon (ex. "user_1"), ce qui fait échouer
+# silencieusement l'outil ou boucler jusqu'à MAX_TOOL_ITERATIONS. On les relie côté
+# serveur (profil authentifié, nom d'ingrédient -> id, localisation du profil).
 TOOLS: list[dict[str, Any]] = [
     {
         "name": "check_budget",
@@ -16,33 +20,26 @@ TOOLS: list[dict[str, Any]] = [
         "parameters": {
             "type": "object",
             "properties": {
-                "profil_id": {"type": "string"},
                 "cout_estime": {"type": "number"},
             },
-            "required": ["profil_id", "cout_estime"],
+            "required": ["cout_estime"],
         },
     },
     {
         "name": "find_nearby_market",
-        "description": "Points de vente pour un ingrédient, triés par prix et sécurité",
+        "description": "Points de vente pour un ingrédient (par nom), triés par prix et sécurité",
         "parameters": {
             "type": "object",
             "properties": {
-                "ingredient_id": {"type": "string"},
-                "lat": {"type": "number"},
-                "lon": {"type": "number"},
+                "ingredient_nom": {"type": "string"},
             },
-            "required": ["ingredient_id", "lat", "lon"],
+            "required": ["ingredient_nom"],
         },
     },
     {
         "name": "check_expiry",
         "description": "Ingrédients du stock proches de la péremption",
-        "parameters": {
-            "type": "object",
-            "properties": {"profil_id": {"type": "string"}},
-            "required": ["profil_id"],
-        },
+        "parameters": {"type": "object", "properties": {}},
     },
     {
         "name": "update_stock",
@@ -50,20 +47,21 @@ TOOLS: list[dict[str, Any]] = [
         "parameters": {
             "type": "object",
             "properties": {
-                "profil_id": {"type": "string"},
-                "ingredient_id": {"type": "string"},
+                "ingredient_nom": {"type": "string"},
                 "quantite_a_deduire": {"type": "number"},
             },
-            "required": ["profil_id", "ingredient_id", "quantite_a_deduire"],
+            "required": ["ingredient_nom", "quantite_a_deduire"],
         },
     },
 ]
 
 
-def execute_tool_call(db: Session, tool_name: str, arguments: dict) -> dict:
+def execute_tool_call(
+    db: Session, profil_id: str, tool_name: str, arguments: dict
+) -> dict:
     args = dict(arguments or {})
     try:
-        result = _dispatch(db, tool_name, args)
+        result = _dispatch(db, profil_id, tool_name, args)
         payload = _to_jsonable(result)
         _log_tool_call(tool_name, args, payload)
         return payload if isinstance(payload, dict) else {"result": payload}
@@ -73,38 +71,64 @@ def execute_tool_call(db: Session, tool_name: str, arguments: dict) -> dict:
         return error
 
 
-def _dispatch(db: Session, tool_name: str, arguments: dict) -> Any:
+def _resolve_ingredient_id(db: Session, ingredient_nom: str) -> str:
+    from backend.models.ingredient import Ingredient
+
+    nom = (ingredient_nom or "").strip()
+    ingredient = db.query(Ingredient).filter(Ingredient.nom.ilike(nom)).first()
+    if not ingredient:
+        raise ValueError(f"Ingrédient introuvable: {ingredient_nom}")
+    return ingredient.id
+
+
+def _dispatch(db: Session, profil_id: str, tool_name: str, arguments: dict) -> Any:
     if tool_name == "check_budget":
         from backend.services.budget_service import check_budget
 
         return check_budget(
             db,
-            profil_id=arguments["profil_id"],
+            profil_id=profil_id,
             cout_estime=float(arguments["cout_estime"]),
         )
 
     if tool_name == "find_nearby_market":
+        from backend.models.localisation import Localisation
         from backend.services.market_service import find_nearby_market
 
+        loc = db.query(Localisation).filter(Localisation.profil_id == profil_id).first()
+        if not loc:
+            raise ValueError("Localisation manquante pour ce profil")
+        ingredient_id = _resolve_ingredient_id(db, arguments["ingredient_nom"])
         return find_nearby_market(
             db,
-            ingredient_id=arguments["ingredient_id"],
-            lat=float(arguments["lat"]),
-            lon=float(arguments["lon"]),
+            ingredient_id=ingredient_id,
+            lat=loc.latitude,
+            lon=loc.longitude,
+            profil_id=profil_id,
         )
 
     if tool_name == "check_expiry":
         from backend.services.stock_alerts import check_expiry
 
-        return check_expiry(db, profil_id=arguments["profil_id"])
+        lignes = check_expiry(db, profil_id=profil_id)
+        return [
+            {
+                "ingredient_nom": ligne.ingredient.nom,
+                "quantite_disponible": ligne.quantite_disponible,
+                "unite": ligne.unite,
+                "date_peremption": ligne.date_peremption,
+            }
+            for ligne in lignes
+        ]
 
     if tool_name == "update_stock":
         from backend.services.stock_service import update_stock
 
+        ingredient_id = _resolve_ingredient_id(db, arguments["ingredient_nom"])
         return update_stock(
             db,
-            profil_id=arguments["profil_id"],
-            ingredient_id=arguments["ingredient_id"],
+            profil_id=profil_id,
+            ingredient_id=ingredient_id,
             quantite_a_deduire=float(arguments["quantite_a_deduire"]),
         )
 
