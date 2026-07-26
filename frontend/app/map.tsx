@@ -210,13 +210,11 @@ export default function MapScreen() {
     );
   }, [mapReady, rayonKm]);
 
-  const focusPoint = (id: string, withRoute = false) => {
+  const focusPoint = (id: string) => {
     setSelectedPdvId(id);
-    if (withRoute) {
-      setRouteInfo(null);
-    }
+    setRouteInfo(null);
     webviewRef.current?.injectJavaScript(
-      `window.focusPoint(${JSON.stringify(id)}, ${withRoute ? "true" : "false"}); true;`
+      `window.focusPoint(${JSON.stringify(id)}); true;`
     );
   };
 
@@ -484,7 +482,7 @@ export default function MapScreen() {
                   item.point_de_vente.id === recommended?.point_de_vente.id
                 }
                 width={cardWidth}
-                onVoirTrajet={() => focusPoint(item.point_de_vente.id, true)}
+                onVoirTrajet={() => focusPoint(item.point_de_vente.id)}
                 real={
                   routeInfo && routeInfo.id === item.point_de_vente.id
                     ? {

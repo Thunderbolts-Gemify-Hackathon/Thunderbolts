@@ -144,23 +144,30 @@ export function buildMarketMapShellHtml(opts: {
       }).addTo(map);
     }
 
+    let routeTimer = null;
+
     function fetchRoadRoute(point) {
-      const myRequest = ++routeRequestId;
-      const url = 'https://router.project-osrm.org/route/v1/driving/'
-        + boot.home.lon + ',' + boot.home.lat + ';' + point.lon + ',' + point.lat
-        + '?overview=simplified&geometries=geojson';
-      fetch(url)
-        .then(function (res) { return res.json(); })
-        .then(function (json) {
-          if (myRequest !== routeRequestId) return;
-          const r = json && json.routes && json.routes[0];
-          const coords = r && r.geometry && r.geometry.coordinates;
-          if (coords && coords.length > 1) {
-            drawRoadRoute(point, coords);
-            post({ type: 'route', id: point.id, distanceM: r.distance, durationS: r.duration });
-          }
-        })
-        .catch(function () {});
+      // Debounce : évite de spammer OSRM quand on swipe vite le carousel,
+      // tout en restaurant le vrai trajet routier (pas une ligne à vol d'oiseau).
+      if (routeTimer) clearTimeout(routeTimer);
+      routeTimer = setTimeout(function () {
+        const myRequest = ++routeRequestId;
+        const url = 'https://router.project-osrm.org/route/v1/driving/'
+          + boot.home.lon + ',' + boot.home.lat + ';' + point.lon + ',' + point.lat
+          + '?overview=full&geometries=geojson';
+        fetch(url)
+          .then(function (res) { return res.json(); })
+          .then(function (json) {
+            if (myRequest !== routeRequestId) return;
+            const r = json && json.routes && json.routes[0];
+            const coords = r && r.geometry && r.geometry.coordinates;
+            if (coords && coords.length > 1) {
+              drawRoadRoute(point, coords);
+              post({ type: 'route', id: point.id, distanceM: r.distance, durationS: r.duration });
+            }
+          })
+          .catch(function () { /* garde la ligne pointillée en secours */ });
+      }, 280);
     }
 
     function restyleMarkers() {
@@ -205,7 +212,7 @@ export function buildMarketMapShellHtml(opts: {
         );
         marker.on('click', function () {
           post({ type: 'select', id: p.id });
-          window.focusPoint(p.id, false);
+          window.focusPoint(p.id);
         });
         markersById[p.id] = marker;
         if (!hidden[p.securite]) marker.addTo(map);
@@ -213,10 +220,12 @@ export function buildMarketMapShellHtml(opts: {
 
       restyleMarkers();
       fitAll();
-      // Pas d'OSRM ici : juste la mise en avant visuelle (beaucoup plus fluide)
       if (focusedId) {
         const point = points.find(function (p) { return p.id === focusedId; });
-        if (point) drawStraightFallback(point);
+        if (point) {
+          drawStraightFallback(point); // immédiat
+          fetchRoadRoute(point);       // puis vrai trajet OSRM
+        }
       }
     };
 
@@ -235,15 +244,15 @@ export function buildMarketMapShellHtml(opts: {
       fitAll();
     };
 
-    // withRoute=true uniquement quand l'utilisateur demande l'itinéraire
-    window.focusPoint = function (id, withRoute) {
+    window.focusPoint = function (id) {
       const point = points.find(function (p) { return p.id === id; });
       if (!point) return;
       focusedId = id;
       restyleMarkers();
       map.panTo([point.lat, point.lon], { animate: true, duration: 0.25 });
+      // Ligne pointillée tout de suite, remplacée par le trajet routier OSRM
       drawStraightFallback(point);
-      if (withRoute) fetchRoadRoute(point);
+      fetchRoadRoute(point);
     };
 
     window.recenterHome = function () {
