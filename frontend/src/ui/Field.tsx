@@ -21,6 +21,9 @@ export function Field({ label, value, onChange, placeholder, keyboard = "default
         placeholderTextColor={colors.muted}
         keyboardType={keyboard}
         autoCapitalize={keyboard === "email-address" ? "none" : "sentences"}
+        // Sur un chiffre prérempli, un tap sélectionne tout : la saisie remplace
+        // au lieu d'obliger à effacer à la main (ex. nombre de personnes).
+        selectTextOnFocus={keyboard === "numeric"}
         style={styles.input}
       />
     </View>

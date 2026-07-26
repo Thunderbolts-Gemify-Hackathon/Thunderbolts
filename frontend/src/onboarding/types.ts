@@ -65,7 +65,7 @@ export const initialData: OnboardingData = {
     objectif: "",
   },
   foyer: {
-    nombre_personnes: "2",
+    nombre_personnes: "",
     membre_prenom: "",
     membre_lien: "",
     membre_age: "",
