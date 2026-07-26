@@ -21,8 +21,13 @@ import {
   type Planning,
   type StockLine,
 } from "@/api/dashboard";
+import { getAgentDigest, type AgentDigest } from "@/api/agent";
+import { getCeSoir, type CeSoirSuggestion } from "@/api/ceSoir";
 import { ApiError } from "@/api/http";
 import { QUARTIER_COORDS } from "@/api/onboarding";
+import { getAlertesPeremption } from "@/api/stockAlerts";
+import { getBudgetSummary, type BudgetSummary } from "@/api/budget";
+import { cacheRecette } from "@/lib/recipeCache";
 import { todayIso, weekStartIso } from "@/lib/dates";
 import { useOnboarding } from "@/onboarding/store";
 import { useSession } from "@/session/SessionContext";
@@ -34,9 +39,13 @@ import { colors, radius, space, type } from "@/theme";
 
 type DashState = {
   budget: Budget | null;
+  summary: BudgetSummary | null;
   stock: StockLine[];
   planning: Planning | null;
   market: MarketMatch | null;
+  ceSoir: CeSoirSuggestion | null;
+  digest: AgentDigest | null;
+  peremption: number;
   error: string | null;
 };
 
@@ -47,9 +56,13 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [state, setState] = useState<DashState>({
     budget: null,
+    summary: null,
     stock: [],
     planning: null,
     market: null,
+    ceSoir: null,
+    digest: null,
+    peremption: 0,
     error: null,
   });
 
@@ -69,20 +82,25 @@ export default function DashboardScreen() {
 
     setLoading(true);
     try {
-      const [budget, stock, planning] = await Promise.all([
-        getBudget(profilId, token).catch((e) => {
-          if (e instanceof ApiError && e.status === 404) return null;
-          throw e;
-        }),
-        getStock(profilId, token).catch((e) => {
-          if (e instanceof ApiError && e.status === 404) return [];
-          throw e;
-        }),
-        getPlanning(profilId, token, weekStartIso()).catch((e) => {
-          if (e instanceof ApiError && e.status === 404) return null;
-          throw e;
-        }),
-      ]);
+      const [budget, stock, planning, ceSoir, peremption, summary, digest] =
+        await Promise.all([
+          getBudget(profilId, token).catch((e) => {
+            if (e instanceof ApiError && e.status === 404) return null;
+            throw e;
+          }),
+          getStock(profilId, token).catch((e) => {
+            if (e instanceof ApiError && e.status === 404) return [];
+            throw e;
+          }),
+          getPlanning(profilId, token, weekStartIso()).catch((e) => {
+            if (e instanceof ApiError && e.status === 404) return null;
+            throw e;
+          }),
+          getCeSoir(profilId, token).catch(() => null),
+          getAlertesPeremption(profilId, token).catch(() => []),
+          getBudgetSummary(profilId, token).catch(() => null),
+          getAgentDigest(profilId, token).catch(() => null),
+        ]);
 
       let market: MarketMatch | null = null;
       const quartier = data.localisation.quartier;
@@ -97,7 +115,33 @@ export default function DashboardScreen() {
         market = matches[0] ?? null;
       }
 
-      setState({ budget, stock, planning, market, error: null });
+      if (ceSoir?.recette?.id) {
+        cacheRecette({
+          id: ceSoir.recette.id,
+          nom: ceSoir.recette.nom,
+          heure_conseillee: null,
+          kcal_total: ceSoir.recette.kcal_total ?? 0,
+          proteines: 0,
+          glucides: 0,
+          lipides: 0,
+          duree_minutes: ceSoir.recette.duree_minutes ?? null,
+          tags: [],
+          instructions: null,
+          ingredients: [],
+        });
+      }
+
+      setState({
+        budget,
+        summary,
+        stock,
+        planning,
+        market,
+        ceSoir,
+        digest,
+        peremption: peremption.length,
+        error: null,
+      });
     } catch (e) {
       const msg =
         e instanceof ApiError
@@ -172,17 +216,67 @@ export default function DashboardScreen() {
 
       {state.error ? <Text style={styles.error}>{state.error}</Text> : null}
 
+      {state.peremption > 0 ? (
+        <Pressable style={styles.alertBanner} onPress={() => router.push("/stock" as Href)}>
+          <Ionicons name="warning-outline" size={18} color={colors.danger} />
+          <Text style={styles.alertText}>
+            {state.peremption} aliment(s) bientôt périmé(s)
+          </Text>
+        </Pressable>
+      ) : null}
+
       <View style={styles.heroCard}>
-        <Text style={styles.heroLabel}>AUJOURD&apos;HUI</Text>
+        <Text style={styles.heroLabel}>CE SOIR</Text>
         <Text style={styles.heroValue}>
-          {repasToday
-            ? `${repasToday.recette.nom} · ${repasToday.type_repas}`
-            : "Aucun repas planifié"}
+          {state.ceSoir?.recette.nom ||
+            (repasToday
+              ? `${repasToday.recette.nom} · ${repasToday.type_repas}`
+              : "Aucune idée pour ce soir")}
         </Text>
         <Text style={styles.heroHint}>
-          {data.localisation.quartier || "Quartier non renseigné"}
+          {state.ceSoir
+            ? `${Math.round(state.ceSoir.couverture_stock * 100)}% stock · ~${Math.round(state.ceSoir.cout_estime)} Ar · ${state.ceSoir.message}`
+            : data.localisation.quartier || "Quartier non renseigné"}
         </Text>
+        {state.ceSoir?.recette.id ? (
+          <View style={styles.heroActions}>
+            <Pressable
+              style={styles.heroBtn}
+              onPress={() =>
+                router.push(`/cuisiner/${state.ceSoir!.recette.id}` as Href)
+              }
+            >
+              <Text style={styles.heroBtnText}>Cuisiner</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.heroBtn, styles.heroBtnGhost]}
+              onPress={() => router.push("/repas" as Href)}
+            >
+              <Text style={[styles.heroBtnText, { color: colors.brand }]}>
+                Autre idée
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
+
+      {state.summary ? (
+        <Text style={styles.budgetLine}>
+          Budget : {formatAr(state.summary.montant_restant, state.summary.devise)} restant
+          {" · "}
+          {state.summary.pourcent_consomme}% consommé
+        </Text>
+      ) : null}
+
+      {state.digest?.resume ? (
+        <View style={styles.digestCard}>
+          <Text style={styles.digestLabel}>AGENT FOYER</Text>
+          <Text style={styles.digestText}>{state.digest.resume}</Text>
+          {state.digest.actions?.[0]?.message ? (
+            <Text style={styles.digestHint}>{state.digest.actions[0].message}</Text>
+          ) : null}
+        </View>
+      ) : null}
 
       <ScrollView
         horizontal
@@ -285,6 +379,11 @@ export default function DashboardScreen() {
           label="Gérer mon stock"
           onPress={() => router.push("/stock" as Href)}
         />
+        <QuickTile
+          icon="book-outline"
+          label="Recettes"
+          onPress={() => router.push("/recettes" as Href)}
+        />
       </View>
     </Screen>
   );
@@ -354,6 +453,48 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   heroHint: { fontSize: type.small, color: colors.muted },
+  heroActions: { flexDirection: "row", gap: space.sm, marginTop: space.sm },
+  heroBtn: {
+    backgroundColor: colors.brand,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.sm,
+  },
+  heroBtnGhost: {
+    backgroundColor: colors.brandSoft,
+  },
+  heroBtnText: { color: "#fff", fontWeight: "700", fontSize: type.label },
+  alertBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm,
+    backgroundColor: "#F8E8E4",
+    padding: space.md,
+    borderRadius: radius.md,
+    marginBottom: space.sm,
+  },
+  alertText: { color: colors.danger, fontWeight: "600", flex: 1 },
+  budgetLine: {
+    fontSize: type.small,
+    color: colors.muted,
+    marginTop: space.sm,
+    marginBottom: space.sm,
+  },
+  digestCard: {
+    backgroundColor: colors.brandSoft,
+    borderRadius: radius.md,
+    padding: space.md,
+    gap: 4,
+    marginBottom: space.sm,
+  },
+  digestLabel: {
+    fontSize: type.small,
+    color: colors.brand,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+  },
+  digestText: { fontSize: type.body, color: colors.ink, fontWeight: "600" },
+  digestHint: { fontSize: type.small, color: colors.muted },
   carouselWrap: { marginHorizontal: -space.lg },
   carousel: { gap: space.sm, paddingHorizontal: space.lg },
   sectionTitle: {

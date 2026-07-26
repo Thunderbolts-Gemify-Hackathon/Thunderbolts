@@ -28,14 +28,15 @@ def inferer_type_repas(heure: int) -> str:
     return "diner"
 
 
-def suggerer_repas(
+def _candidats_scored(
     db: Session,
     profil_id: str,
     type_repas: str | None,
     duree_max_minutes: int | None,
-) -> dict[str, Any]:
+    *,
+    mode: str | None = None,
+) -> tuple[str, list[dict[str, Any]], dict[str, Any]]:
     type_repas = type_repas or inferer_type_repas(datetime.now().hour)
-
     profil_complet = onboarding_suite.get_profil_complet(db, profil_id)
     preferences = dict(profil_complet.get("preferences") or {})
     preferences["objectif"] = (profil_complet.get("profil") or {}).get("objectif")
@@ -51,13 +52,46 @@ def suggerer_repas(
             r for r in candidats if (r.get("duree_minutes") or 0) <= duree_max_minutes
         ]
         candidats = sous_temps or candidats
+    if mode == "rapide":
+        candidats = sorted(candidats, key=lambda r: r.get("duree_minutes") or 999)
+    elif mode == "stock":
+        pass  # tri couverture plus bas
     if not candidats:
         raise ValueError("Aucune recette compatible avec les allergies/tabous du profil")
 
     stock_dispo = stock_map(db, profil_id)
-    scored = sorted(
-        (avec_couverture(r, stock_dispo) for r in candidats),
-        key=lambda r: -r["_couverture"],
+    scored = [avec_couverture(r, stock_dispo) for r in candidats]
+
+    # Re-ranking feedback : boost liked, pénalise disliked
+    from backend.services import feedback_service
+
+    liked = feedback_service.liked_recette_ids(db, profil_id)
+    disliked = feedback_service.disliked_recette_ids(db, profil_id)
+    for r in scored:
+        bonus = 0.0
+        if r["id"] in liked:
+            bonus += 0.15
+        if r["id"] in disliked:
+            bonus -= 0.25
+        r["_score"] = float(r["_couverture"]) + bonus
+
+    if mode == "rapide":
+        scored = sorted(
+            scored, key=lambda r: (r.get("duree_minutes") or 999, -r["_score"])
+        )
+    else:
+        scored = sorted(scored, key=lambda r: -r["_score"])
+    return type_repas, scored, profil_complet
+
+
+def suggerer_repas(
+    db: Session,
+    profil_id: str,
+    type_repas: str | None,
+    duree_max_minutes: int | None,
+) -> dict[str, Any]:
+    type_repas, scored, profil_complet = _candidats_scored(
+        db, profil_id, type_repas, duree_max_minutes
     )
     pool = scored[:POOL_SIZE]
 
@@ -77,6 +111,47 @@ def suggerer_repas(
         "message": message,
         "couverture_stock": round(retenue["_couverture"], 2),
         "ingredients_manquants": retenue["_manquants"],
+    }
+
+
+def suggestion_ce_soir(
+    db: Session,
+    profil_id: str,
+    *,
+    mode: str | None = None,
+    duree_max_minutes: int | None = None,
+) -> dict[str, Any]:
+    """Suggestion déterministe pour le dashboard (pas d'appel Gemma)."""
+    type_repas, scored, _ = _candidats_scored(
+        db, profil_id, None, duree_max_minutes, mode=mode or "stock"
+    )
+    retenue = scored[0]
+    recette_obj = db.get(Recette, retenue["id"])
+    cout = 0.0
+    for ing in retenue.get("ingredients") or []:
+        prix = float(ing.get("prix_moyen_reference") or 0)
+        qty = float(ing.get("poids_requis") or 0)
+        unite = (ing.get("unite") or "g").lower()
+        if unite in ("g", "ml"):
+            cout += prix * (qty / 1000.0)
+        else:
+            cout += prix * qty
+    return {
+        "recette": recette_obj,
+        "type_repas": type_repas,
+        "message": _message_par_defaut(retenue),
+        "couverture_stock": round(retenue["_couverture"], 2),
+        "ingredients_manquants": retenue["_manquants"],
+        "cout_estime": round(cout, 2),
+        "alternatives": [
+            {
+                "recette_id": r["id"],
+                "nom": r["nom"],
+                "couverture_stock": round(r["_couverture"], 2),
+                "duree_minutes": r.get("duree_minutes"),
+            }
+            for r in scored[1:4]
+        ],
     }
 
 

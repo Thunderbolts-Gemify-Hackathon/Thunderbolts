@@ -29,6 +29,10 @@ from backend.services import (
     recette_etapes_service,
     repas_suggestion_service,
 )
+from backend.schemas.agent import AgentActionOut, AgentActionRespondRequest, AgentDigestOut
+from backend.schemas.anti_gaspi import AntiGaspiOut
+from backend.schemas.feedback import RepasFeedbackCreate, RepasFeedbackOut
+from backend.services import anti_gaspi_service, feedback_service, foyer_agent_service
 from backend.services.directive_courses_service import build_directive_courses
 from backend.services.gemma_agent import run_tool_loop
 from backend.services.gemma_client import GemmaClient
@@ -62,9 +66,18 @@ def chat(
 ):
     """Chat libre avec Gemma sur le profil (mêmes règles/outils que la génération de planning)."""
     profil_complet = onboarding_suite.get_profil_complet(db, profil.id)
+    memories = [
+        {"cle": m.cle, "contenu": m.contenu, "importance": m.importance}
+        for m in foyer_agent_service.top_memories(db, profil.id)
+    ]
 
     messages = [
-        {"role": "system", "content": build_system_prompt(profil_complet, voice=payload.voice)}
+        {
+            "role": "system",
+            "content": build_system_prompt(
+                profil_complet, voice=payload.voice, memories=memories
+            ),
+        }
     ]
     messages += [{"role": m.role, "content": m.content} for m in payload.historique]
     messages.append({"role": "user", "content": payload.message})
@@ -116,6 +129,22 @@ def suggestion_repas(
     return resultat
 
 
+@router.get("/{profil_id}/ce-soir")
+def ce_soir(
+    profil: Profil = Depends(require_profil_owner),
+    mode: str | None = Query(default=None, description="stock|rapide"),
+    duree_max_minutes: int | None = Query(default=None, gt=0),
+    db: Session = Depends(get_db),
+):
+    """Card dashboard « Ce soir » : suggestion déterministe sans Gemma."""
+    try:
+        return repas_suggestion_service.suggestion_ce_soir(
+            db, profil.id, mode=mode, duree_max_minutes=duree_max_minutes
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
 @router.post("/{profil_id}/recette/{recette_id}/etapes", response_model=EtapesRecetteResponse)
 def etapes_recette(
     recette_id: str,
@@ -130,6 +159,64 @@ def etapes_recette(
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return EtapesRecetteResponse(etapes=etapes)
+
+
+@router.get("/{profil_id}/agent/digest", response_model=AgentDigestOut)
+def agent_digest(
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    data = foyer_agent_service.build_digest(db, profil.id)
+    return AgentDigestOut(
+        alertes_stock=data["alertes_stock"],
+        budget=data["budget"],
+        ce_soir=data["ce_soir"],
+        actions=[AgentActionOut.model_validate(a) for a in data["actions"]],
+        memories=data["memories"],
+        resume=data["resume"],
+    )
+
+
+@router.post(
+    "/{profil_id}/agent/actions/{action_id}/respond",
+    response_model=AgentActionOut,
+)
+def agent_respond(
+    action_id: str,
+    payload: AgentActionRespondRequest,
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    try:
+        return foyer_agent_service.respond_action(
+            db, profil.id, action_id, payload.decision
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.get("/{profil_id}/anti-gaspi", response_model=AntiGaspiOut)
+def anti_gaspi(
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    return anti_gaspi_service.compute_anti_gaspi(db, profil.id)
+
+
+@router.post(
+    "/{profil_id}/feedback",
+    response_model=RepasFeedbackOut,
+    status_code=201,
+)
+def repas_feedback(
+    payload: RepasFeedbackCreate,
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    try:
+        return feedback_service.upsert_feedback(db, profil.id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.post("/{profil_id}/suggestion-remede", response_model=RemedeResponse)

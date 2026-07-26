@@ -45,6 +45,7 @@ def _serialize_recette(recette: Recette) -> dict[str, Any]:
                 "nom": ligne.ingredient.nom,
                 "poids_requis": ligne.poids_requis,
                 "unite": ligne.unite,
+                "prix_moyen_reference": ligne.ingredient.prix_moyen_reference,
             }
             for ligne in recette.ingredients
         ],
