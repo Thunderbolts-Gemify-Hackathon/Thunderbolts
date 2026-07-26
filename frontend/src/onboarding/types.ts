@@ -5,7 +5,7 @@ export type StepId =
   | "budget"
   | "localisation";
 
-export type FieldKind = "text" | "email" | "number" | "select" | "chips" | "date";
+export type FieldKind = "text" | "email" | "number" | "select" | "chips" | "date" | "location";
 
 export type FieldDef = {
   key: string;
@@ -50,6 +50,9 @@ export type OnboardingData = {
   localisation: {
     quartier: string;
     saison: string;
+    /** Coordonnées GPS réelles (optionnelles) — remplacent le quartier si présentes. */
+    latitude: string;
+    longitude: string;
   };
 };
 
@@ -74,5 +77,5 @@ export const initialData: OnboardingData = {
     aliments_detestes: [],
   },
   budget: { montant: "", periode: "semaine" },
-  localisation: { quartier: "", saison: "" },
+  localisation: { quartier: "", saison: "", latitude: "", longitude: "" },
 };

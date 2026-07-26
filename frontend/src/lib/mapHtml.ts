@@ -34,6 +34,7 @@ export function buildMarketMapHtml(opts: {
       label: opts.homeLabel,
     },
     points,
+    focusedId: opts.recommendedId ?? points[0]?.id ?? null,
   });
 
   return `<!DOCTYPE html>
@@ -45,26 +46,14 @@ export function buildMarketMapHtml(opts: {
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     html, body, #map { height: 100%; margin: 0; background: #e8f0ea; }
-    .legend {
-      position: absolute; z-index: 1000; left: 10px; bottom: 14px;
-      background: rgba(255,252,247,0.95); padding: 8px 10px; border-radius: 10px;
-      font: 12px/1.35 system-ui, sans-serif; color: #1A1F1C;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.12);
-    }
-    .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
+    .leaflet-control-attribution { font-size: 9px; }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div class="legend">
-    <div><span class="dot" style="background:#2F6B45"></span>Trajet sur</div>
-    <div><span class="dot" style="background:#C45C26"></span>Prudence</div>
-    <div><span class="dot" style="background:#A33B2B"></span>A eviter</div>
-    <div><span class="dot" style="background:#1F3D2B"></span>Chez toi</div>
-  </div>
   <script>
     const data = ${payload};
-    const map = L.map('map', { zoomControl: true }).setView([data.home.lat, data.home.lon], 13);
+    const map = L.map('map', { zoomControl: false, attributionControl: true }).setView([data.home.lat, data.home.lon], 13);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       attribution: '&copy; OpenStreetMap &copy; CARTO',
       subdomains: 'abcd',
@@ -78,7 +67,7 @@ export function buildMarketMapHtml(opts: {
       return '#5E6A62';
     }
 
-    L.circleMarker([data.home.lat, data.home.lon], {
+    const homeMarker = L.circleMarker([data.home.lat, data.home.lon], {
       radius: 11,
       color: '#fff',
       weight: 2,
@@ -86,13 +75,77 @@ export function buildMarketMapHtml(opts: {
       fillOpacity: 1
     }).addTo(map).bindPopup(${JSON.stringify(opts.homeLabel)});
 
+    let route = null;
+    let focusedId = data.focusedId;
+    let hidden = {};
+    const markersById = {};
+
+    function post(msg) {
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify(msg));
+      }
+    }
+
+    function drawRoute(point) {
+      if (route) { map.removeLayer(route); route = null; }
+      if (!point) return;
+      route = L.polyline([[data.home.lat, data.home.lon], [point.lat, point.lon]], {
+        color: colorFor(point.securite),
+        weight: 4,
+        opacity: 0.8,
+        dashArray: '8 8'
+      }).addTo(map);
+    }
+
+    function restyleMarkers() {
+      data.points.forEach(function (p) {
+        const marker = markersById[p.id];
+        if (!marker) return;
+        const focused = p.id === focusedId;
+        marker.setStyle({
+          radius: focused ? 15 : (p.recommended ? 12 : 9),
+          weight: focused ? 3 : 2,
+          color: focused ? '#1F3D2B' : '#fff'
+        });
+      });
+    }
+
+    window.focusPoint = function (id) {
+      const point = data.points.find(function (p) { return p.id === id; });
+      if (!point) return;
+      focusedId = id;
+      drawRoute(point);
+      restyleMarkers();
+      map.panTo([point.lat, point.lon]);
+    };
+
+    window.recenterHome = function () {
+      const bounds = [[data.home.lat, data.home.lon]];
+      data.points.forEach(function (p) { if (!hidden[p.securite]) bounds.push([p.lat, p.lon]); });
+      map.fitBounds(bounds, { padding: [40, 60] });
+    };
+
+    window.setHiddenSecurities = function (list) {
+      hidden = {};
+      (list || []).forEach(function (s) { hidden[s] = true; });
+      data.points.forEach(function (p) {
+        const marker = markersById[p.id];
+        if (!marker) return;
+        if (hidden[p.securite]) {
+          if (map.hasLayer(marker)) map.removeLayer(marker);
+        } else if (!map.hasLayer(marker)) {
+          marker.addTo(map);
+        }
+      });
+    };
+
     const bounds = [[data.home.lat, data.home.lon]];
     data.points.forEach(function (p) {
       const c = colorFor(p.securite);
       const marker = L.circleMarker([p.lat, p.lon], {
-        radius: p.recommended ? 14 : 10,
-        color: p.recommended ? '#1F3D2B' : '#fff',
-        weight: p.recommended ? 3 : 2,
+        radius: p.recommended ? 12 : 9,
+        color: '#fff',
+        weight: 2,
         fillColor: c,
         fillOpacity: 0.95
       }).addTo(map);
@@ -100,21 +153,17 @@ export function buildMarketMapHtml(opts: {
         + (p.recommended ? '<br/><b>Recommande (plus safe)</b>' : '');
       marker.bindPopup(html);
       marker.on('click', function () {
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'select', id: p.id }));
-        }
+        post({ type: 'select', id: p.id });
+        window.focusPoint(p.id);
       });
+      markersById[p.id] = marker;
       bounds.push([p.lat, p.lon]);
-      if (p.recommended) {
-        L.polyline([[data.home.lat, data.home.lon], [p.lat, p.lon]], {
-          color: '#1F3D2B',
-          weight: 4,
-          opacity: 0.75,
-          dashArray: '8 8'
-        }).addTo(map);
-      }
     });
-    if (bounds.length > 1) map.fitBounds(bounds, { padding: [36, 36] });
+
+    if (data.focusedId) {
+      window.focusPoint(data.focusedId);
+    }
+    if (bounds.length > 1) map.fitBounds(bounds, { padding: [40, 60] });
   </script>
 </body>
 </html>`;

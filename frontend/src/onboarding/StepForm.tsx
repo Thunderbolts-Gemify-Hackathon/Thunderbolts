@@ -2,6 +2,7 @@ import { View } from "react-native";
 
 import { ChoiceGroup } from "@/ui/ChoiceGroup";
 import { Field } from "@/ui/Field";
+import { LocationField } from "@/ui/LocationField";
 
 import type { FieldDef, OnboardingData, StepId } from "./types";
 
@@ -23,6 +24,21 @@ export function StepForm({ stepId, fields, values, onChange }: Props) {
     <View style={{ gap: 16 }}>
       {fields.map((field) => {
         const current = (values as Record<string, unknown>)[field.key];
+
+        if (field.kind === "location") {
+          const v = values as Record<string, unknown>;
+          return (
+            <LocationField
+              key={`${stepId}-${field.key}`}
+              latitude={String(v.latitude ?? "")}
+              longitude={String(v.longitude ?? "")}
+              onLocated={(lat, lon) => {
+                onChange("latitude", lat);
+                onChange("longitude", lon);
+              }}
+            />
+          );
+        }
 
         if (field.kind === "select" || field.kind === "chips") {
           return (

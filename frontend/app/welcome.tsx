@@ -16,8 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { STEP_IDS } from "@/onboarding/steps";
-import { Button } from "@/ui/Button";
-import { colors, space, type } from "@/theme";
+import { colors, space } from "@/theme";
 
 type Slide = {
   image: ImageSourcePropType;
@@ -46,6 +45,12 @@ const SLIDES: Slide[] = [
   },
 ];
 
+/** Palette dédiée à cet écran, calquée pixel pour pixel sur la maquette fournie. */
+const BLOB = "#FEE4C3";
+const ORANGE = "#E58F16";
+const ORANGE_DOT = "#F28600";
+const DOT_INACTIVE = "#E6E6E6";
+
 export default function WelcomeTourScreen() {
   const router = useRouter();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
@@ -53,7 +58,9 @@ export default function WelcomeTourScreen() {
   const [index, setIndex] = useState(0);
 
   const isLast = index === SLIDES.length - 1;
-  const illustrationSize = Math.min(screenWidth * 0.58, screenHeight * 0.3);
+  const illustrationAreaHeight = screenHeight * 0.4;
+  const blobSize = screenWidth * 0.82;
+  const imageSize = screenWidth * 0.68;
 
   const goTo = (next: number) => {
     scrollRef.current?.scrollTo({ x: next * screenWidth, animated: true });
@@ -72,10 +79,10 @@ export default function WelcomeTourScreen() {
       <View style={styles.topBar}>
         <Pressable
           onPress={() => index > 0 && goTo(index - 1)}
-          hitSlop={8}
-          style={[styles.backBtn, index === 0 && styles.backBtnHidden]}
+          hitSlop={12}
+          style={index === 0 && styles.backBtnHidden}
         >
-          <Feather name="arrow-left" size={20} color={colors.ink} />
+          <Feather name="arrow-left" size={24} color={colors.ink} />
         </Pressable>
       </View>
 
@@ -86,18 +93,20 @@ export default function WelcomeTourScreen() {
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onMomentumEnd}
         scrollEventThrottle={16}
-        style={{ maxHeight: illustrationSize }}
+        style={{ height: illustrationAreaHeight }}
       >
         {SLIDES.map((slide) => (
           <View
             key={slide.title}
-            style={[styles.slide, { width: screenWidth, height: illustrationSize }]}
+            style={[styles.slide, { width: screenWidth, height: illustrationAreaHeight }]}
           >
-            <Image
-              source={slide.image}
-              style={{ width: illustrationSize, height: illustrationSize }}
-              resizeMode="contain"
-            />
+            <View style={[styles.blob, { width: blobSize, height: blobSize, borderRadius: blobSize / 2 }]}>
+              <Image
+                source={slide.image}
+                style={{ width: imageSize, height: imageSize }}
+                resizeMode="contain"
+              />
+            </View>
           </View>
         ))}
       </ScrollView>
@@ -114,11 +123,12 @@ export default function WelcomeTourScreen() {
       </View>
 
       <View style={styles.actions}>
-        <Button
-          label={isLast ? "Commencer" : "Continuer"}
+        <Pressable
           onPress={() => (isLast ? finish() : goTo(index + 1))}
-          rounded
-        />
+          style={({ pressed }) => [styles.continueBtn, pressed && { opacity: 0.85 }]}
+        >
+          <Text style={styles.continueLabel}>{isLast ? "Commencer" : "Continuer"}</Text>
+        </Pressable>
         <Pressable onPress={finish} hitSlop={8}>
           <Text style={styles.skip}>Passer</Text>
         </Pressable>
@@ -132,18 +142,15 @@ const styles = StyleSheet.create({
   topBar: {
     paddingHorizontal: space.lg,
     paddingTop: space.sm,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "flex-start",
+    paddingBottom: space.xs,
   },
   backBtnHidden: { opacity: 0 },
   slide: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  blob: {
+    backgroundColor: BLOB,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -151,44 +158,53 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     marginTop: space.md,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.line,
+    backgroundColor: DOT_INACTIVE,
   },
   dotActive: {
-    width: 20,
-    backgroundColor: colors.brand,
+    backgroundColor: ORANGE_DOT,
   },
   content: {
-    flex: 1,
     gap: space.sm,
     paddingHorizontal: space.lg,
     paddingTop: space.lg,
     alignItems: "center",
-    justifyContent: "flex-start",
   },
   title: {
-    fontSize: type.title,
-    fontWeight: "700",
+    fontSize: 28,
+    fontWeight: "800",
     color: colors.ink,
     letterSpacing: -0.3,
     textAlign: "center",
+    lineHeight: 34,
   },
   subtitle: {
-    fontSize: type.body,
+    fontSize: 15,
     color: colors.muted,
-    lineHeight: 22,
+    lineHeight: 21,
     textAlign: "center",
   },
   actions: {
+    flex: 1,
+    justifyContent: "flex-end",
     paddingHorizontal: space.lg,
     paddingBottom: space.lg,
+    paddingTop: space.lg,
     gap: space.sm,
   },
-  skip: { color: colors.muted, fontWeight: "600", fontSize: type.body, textAlign: "center" },
+  continueBtn: {
+    minHeight: 56,
+    borderRadius: 999,
+    backgroundColor: ORANGE,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  continueLabel: { fontSize: 17, fontWeight: "700", color: "#1A1207" },
+  skip: { color: colors.ink, fontWeight: "600", fontSize: 15, textAlign: "center" },
 });

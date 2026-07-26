@@ -41,7 +41,13 @@
           "resizeMode": "contain"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Kaly Tao utilise ta position pour trouver les marchés les plus proches de chez toi."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

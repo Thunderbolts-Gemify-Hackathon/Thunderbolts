@@ -59,3 +59,17 @@ export function postSuggestionRemede(profilId: string, token: string) {
     token,
   });
 }
+
+export type EtapesRecette = { etapes: string };
+
+/**
+ * Explication d'une recette en étapes courtes. Volontairement séparé de
+ * postChat : pas d'outils, pas de boucle tool-calling — juste une question
+ * directe à Gemma, bien plus fiable sur un petit modèle local.
+ */
+export function getEtapesRecette(profilId: string, token: string, recetteId: string) {
+  return api<EtapesRecette>(`/ia/${profilId}/recette/${recetteId}/etapes`, {
+    method: "POST",
+    token,
+  });
+}

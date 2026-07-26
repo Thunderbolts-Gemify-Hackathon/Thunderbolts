@@ -158,6 +158,11 @@ export const STEPS: StepDef[] = [
     subtitle: "Pour trouver les marchés près de chez toi.",
     fields: [
       {
+        key: "gps",
+        label: "Position exacte",
+        kind: "location",
+      },
+      {
         key: "quartier",
         label: "Quartier",
         kind: "select",

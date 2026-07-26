@@ -21,6 +21,8 @@ export type Session = {
   preferencesId?: string;
   budgetId?: string;
   localisationId?: string;
+  localisationLat?: number;
+  localisationLon?: number;
 };
 
 type Ctx = {

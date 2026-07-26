@@ -150,14 +150,19 @@ export async function submitStep(
     const profilId = requireProfilId(s);
     const l = data.localisation;
 
-    if (!l.quartier) {
-      throw new Error("Choisis ton quartier.");
-    }
     if (!l.saison || !["ete_humide", "hiver_sec", "intersaison"].includes(l.saison)) {
       throw new Error("Choisis une saison.");
     }
 
-    const coords = QUARTIER_COORDS[l.quartier];
+    const gpsLat = Number(l.latitude);
+    const gpsLon = Number(l.longitude);
+    const hasGps = l.latitude !== "" && l.longitude !== "" && Number.isFinite(gpsLat) && Number.isFinite(gpsLon);
+
+    if (!hasGps && !l.quartier) {
+      throw new Error("Choisis ton quartier ou utilise ta position.");
+    }
+
+    const coords = hasGps ? { lat: gpsLat, lon: gpsLon } : QUARTIER_COORDS[l.quartier];
     if (!coords) {
       throw new Error("Quartier inconnu.");
     }
@@ -167,13 +172,19 @@ export async function submitStep(
       {
         latitude: coords.lat,
         longitude: coords.lon,
-        quartier: l.quartier,
+        quartier: l.quartier || undefined,
         saison: l.saison,
       },
       s.apiToken
     );
 
-    return { sessionPatch: { localisationId: localisation.id } };
+    return {
+      sessionPatch: {
+        localisationId: localisation.id,
+        localisationLat: coords.lat,
+        localisationLon: coords.lon,
+      },
+    };
   }
 
   return {};

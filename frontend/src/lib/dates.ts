@@ -9,3 +9,8 @@ export function weekStartIso(d = new Date()): string {
 export function todayIso(d = new Date()): string {
   return d.toISOString().slice(0, 10);
 }
+
+export function monthStartIso(d = new Date()): string {
+  const first = new Date(d.getFullYear(), d.getMonth(), 1);
+  return first.toISOString().slice(0, 10);
+}
