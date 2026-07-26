@@ -29,9 +29,9 @@ export function Body({ children, ...rest }: TextProps) {
 const styles = StyleSheet.create({
   brand: {
     fontSize: type.brand,
-    fontWeight: "700",
+    fontFamily: "Fredoka_700Bold",
     color: colors.brand,
-    letterSpacing: -0.5,
+    letterSpacing: 0.2,
   },
   title: {
     fontSize: type.title,

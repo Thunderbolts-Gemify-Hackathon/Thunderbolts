@@ -5,8 +5,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useOnboarding } from "@/onboarding/store";
 import { Button } from "@/ui/Button";
 import { CurveBackdrop } from "@/ui/CurveBackdrop";
-import { Body, Brand, Title } from "@/ui/Typography";
-import { colors, space, type } from "@/theme";
+import { Brand } from "@/ui/Typography";
+import { colors, space } from "@/theme";
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -26,15 +26,10 @@ export default function WelcomeScreen() {
 
       <View style={styles.content}>
         <Brand style={styles.brand}>Kaly Tao</Brand>
-        <Title style={styles.title}>Manger juste, ici à Tana.</Title>
-        <Body style={styles.body}>
-          Un planning de repas sains chaque semaine, adapté à ton budget et à
-          ton foyer.
-        </Body>
       </View>
 
       <View style={styles.actions}>
-        <Button label="Commencer" onPress={() => router.push("/signup")} />
+        <Button label="Commencer" onPress={() => router.push("/signup")} rounded />
         <Text style={styles.footerText}>
           Déjà un compte ?{" "}
           <Text style={styles.link} onPress={() => router.push("/signin")}>
@@ -59,14 +54,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   brand: { textAlign: "center" },
-  title: { textAlign: "center" },
-  body: { textAlign: "center" },
   actions: {
     paddingHorizontal: space.lg,
     paddingTop: space.lg,
     paddingBottom: space.lg,
     gap: space.sm,
   },
-  footerText: { textAlign: "center", color: colors.muted, fontSize: type.body },
+  footerText: { textAlign: "center", color: colors.muted, fontSize: 16 },
   link: { color: colors.brand, fontWeight: "700" },
 });

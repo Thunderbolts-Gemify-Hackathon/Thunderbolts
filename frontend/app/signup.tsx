@@ -6,7 +6,6 @@ import { StyleSheet, Text, View } from "react-native";
 import { ApiError } from "@/api/http";
 import { createUtilisateur } from "@/api/utilisateur";
 import { isValidDateNaissance, isValidEmail } from "@/lib/validators";
-import { STEP_IDS } from "@/onboarding/steps";
 import { useSession } from "@/session/SessionContext";
 import { AuthField } from "@/ui/AuthField";
 import { AuthPasswordField } from "@/ui/AuthPasswordField";
@@ -88,7 +87,7 @@ export default function SignUpScreen() {
         prenom: user.prenom,
         email: user.email,
       });
-      router.replace(`/onboarding/${STEP_IDS[0]}`);
+      router.replace("/welcome");
     } catch (e) {
       setError(e instanceof ApiError ? e.detail : "Erreur inconnue");
     } finally {
@@ -98,6 +97,7 @@ export default function SignUpScreen() {
 
   return (
     <Screen
+      noNavClearance
       footer={
         <View style={styles.actions}>
           <Button

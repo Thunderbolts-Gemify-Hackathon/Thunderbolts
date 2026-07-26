@@ -68,6 +68,7 @@ export default function SignInScreen() {
   return (
     <Screen
       style={styles.screen}
+      noNavClearance
       footer={
         <View style={styles.actions}>
           <Button
