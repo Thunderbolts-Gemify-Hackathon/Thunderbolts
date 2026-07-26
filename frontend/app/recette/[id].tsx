@@ -144,7 +144,7 @@ export default function RecetteDetailScreen() {
                 <ActivityIndicator color={colors.brand} />
                 <Text style={styles.meta}>Kaly Tao prépare les étapes…</Text>
               </View>
-            ) : etapes ? (
+            ) : Array.isArray(etapes) && etapes.length > 0 ? (
               etapes.map((etape) => (
                 <View key={etape.numero} style={styles.etapeRow}>
                   <View style={styles.etapeNumero}>
@@ -152,7 +152,7 @@ export default function RecetteDetailScreen() {
                   </View>
                   <View style={styles.etapeBody}>
                     <Text style={styles.etapeTitre}>{etape.titre}</Text>
-                    {etape.ingredients.length > 0 ? (
+                    {Array.isArray(etape.ingredients) && etape.ingredients.length > 0 ? (
                       <Text style={styles.etapeIngredients}>{etape.ingredients.join(" · ")}</Text>
                     ) : null}
                   </View>

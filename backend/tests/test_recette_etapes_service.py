@@ -57,8 +57,21 @@ def test_generer_etapes_recette_introuvable(db_session):
         recette_etapes_service.generer_etapes(db_session, "id-inexistant", client=FakeGemmaClient("x"))
 
 
-def test_generer_etapes_reponse_vide_leve_runtime_error(db_session):
+def test_generer_etapes_reponse_vide_utilise_fallback(db_session):
     recette_id = _setup_recette(db_session)
     client = FakeGemmaClient("")
-    with pytest.raises(RuntimeError):
-        recette_etapes_service.generer_etapes(db_session, recette_id, client=client)
+    etapes = recette_etapes_service.generer_etapes(db_session, recette_id, client=client)
+    assert len(etapes) >= 3
+    assert etapes[0].numero == 1
+    assert "ingrédients" in etapes[0].titre.lower() or "ingredient" in etapes[0].titre.lower()
+
+
+def test_generer_etapes_accepte_enveloppe_etapes(db_session):
+    """Gemma renvoie parfois {"etapes": [...]} au lieu d'un tableau direct."""
+    recette_id = _setup_recette(db_session)
+    contenu = '{"etapes": [{"titre": "Couper le poulet.", "ingredients": ["poulet"]}]}'
+    client = FakeGemmaClient(contenu)
+    etapes = recette_etapes_service.generer_etapes(db_session, recette_id, client=client)
+    assert len(etapes) == 1
+    assert etapes[0].titre == "Couper le poulet."
+    assert etapes[0].ingredients == ["poulet"]

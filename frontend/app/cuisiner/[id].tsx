@@ -60,9 +60,11 @@ export default function ModeCuisineScreen() {
   const [timerOpen, setTimerOpen] = useState(false);
   const [timerLeft, setTimerLeft] = useState<number | null>(null);
 
-  const total = etapes?.length ?? 0;
+  const etapesList = Array.isArray(etapes) ? etapes : [];
+  const total = etapesList.length;
   const isLast = total > 0 && stepIndex === total - 1;
-  const step = etapes?.[stepIndex];
+  const step = total > 0 ? etapesList[Math.min(stepIndex, total - 1)] : undefined;
+  const stepIngredients = Array.isArray(step?.ingredients) ? step.ingredients : [];
 
   useEffect(() => {
     void activateKeepAwakeAsync("mode-cuisine");
@@ -216,7 +218,7 @@ export default function ModeCuisineScreen() {
 
       {total > 0 ? (
         <View style={styles.dotsRow}>
-          {etapes!.map((_, i) => (
+          {etapesList.map((_, i) => (
             <View
               key={i}
               style={[
@@ -256,9 +258,9 @@ export default function ModeCuisineScreen() {
           <>
             <Text style={styles.stepLabel}>ÉTAPE {step.numero}</Text>
             <Text style={styles.stepTitle}>{step.titre}</Text>
-            {step.ingredients.length > 0 ? (
+            {stepIngredients.length > 0 ? (
               <View style={styles.chipsRow}>
-                {step.ingredients.map((ing) => (
+                {stepIngredients.map((ing) => (
                   <View key={ing} style={styles.chip}>
                     <Text style={styles.chipText}>{ing}</Text>
                   </View>

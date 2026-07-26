@@ -38,9 +38,11 @@ export function getCachedContext(id: string): CachedRepasContext | undefined {
 
 /** Partage les étapes déjà générées par Gemma entre l'écran détail et le mode cuisine. */
 export function cacheEtapes(recetteId: string, etapes: EtapeRecette[]) {
+  if (!Array.isArray(etapes) || etapes.length === 0) return;
   etapesParRecette.set(recetteId, etapes);
 }
 
 export function getCachedEtapes(recetteId: string): EtapeRecette[] | undefined {
-  return etapesParRecette.get(recetteId);
+  const cached = etapesParRecette.get(recetteId);
+  return Array.isArray(cached) && cached.length > 0 ? cached : undefined;
 }

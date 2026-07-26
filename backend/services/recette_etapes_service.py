@@ -46,18 +46,54 @@ def generer_etapes(
 
     try:
         resultat = (client or GemmaClient()).chat(messages, json_mode=True)
-    except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError) as exc:
-        raise RuntimeError("Gemma indisponible (Ollama / API distante)") from exc
+        contenu = ((resultat.get("message") or {}).get("content") or "").strip()
+    except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError):
+        # Mode cuisine doit rester utilisable même si Ollama est down.
+        return _etapes_fallback(recette.nom, noms)
 
-    contenu = (resultat.get("message") or {}).get("content") or ""
-    contenu = contenu.strip()
     if not contenu:
-        raise RuntimeError("Gemma n'a pas produit d'étapes pour cette recette")
+        return _etapes_fallback(recette.nom, noms)
 
     etapes = _parse_etapes(contenu, noms)
-    if not etapes:
-        raise RuntimeError("Réponse de Gemma illisible pour les étapes")
-    return etapes
+    return etapes if etapes else _etapes_fallback(recette.nom, noms)
+
+
+def _etapes_fallback(nom: str, noms_ingredients: list[str]) -> list[EtapeRecette]:
+    """Étapes déterministes quand Gemma est indisponible ou illisible."""
+    ingredients = list(noms_ingredients[:8])
+    return [
+        EtapeRecette(
+            numero=1,
+            titre=f"Rassembler les ingrédients pour {nom}.",
+            ingredients=ingredients,
+        ),
+        EtapeRecette(
+            numero=2,
+            titre="Laver, couper et préparer ce qu'il faut.",
+            ingredients=ingredients[:4],
+        ),
+        EtapeRecette(
+            numero=3,
+            titre=f"Cuisiner {nom} en suivant l'ordre habituel.",
+            ingredients=[],
+        ),
+        EtapeRecette(
+            numero=4,
+            titre="Goûter, ajuster l'assaisonnement, puis servir.",
+            ingredients=[],
+        ),
+    ]
+
+
+def _unwrap_liste_etapes(brut: list) -> list:
+    """Gemma renvoie parfois `{"etapes": [...]}` au lieu d'un tableau direct."""
+    if (
+        len(brut) == 1
+        and isinstance(brut[0], dict)
+        and isinstance(brut[0].get("etapes"), list)
+    ):
+        return brut[0]["etapes"]
+    return brut
 
 
 def _parse_etapes(contenu: str, noms_ingredients: list[str]) -> list[EtapeRecette]:
@@ -67,11 +103,19 @@ def _parse_etapes(contenu: str, noms_ingredients: list[str]) -> list[EtapeRecett
 
     brut = parse_json_list(contenu)
     if brut:
+        brut = _unwrap_liste_etapes(brut)
         etapes: list[EtapeRecette] = []
         for i, item in enumerate(brut, start=1):
             if not isinstance(item, dict):
                 continue
-            titre = str(item.get("titre") or item.get("titre_etape") or item.get("etape") or "").strip()
+            titre = str(
+                item.get("titre")
+                or item.get("titre_etape")
+                or item.get("etape")
+                or item.get("instruction")
+                or item.get("description")
+                or ""
+            ).strip()
             if not titre:
                 continue
             ingredients_bruts = item.get("ingredients")

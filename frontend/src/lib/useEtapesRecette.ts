@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { getEtapesRecette, type EtapeRecette } from "@/api/chat";
 import { ApiError } from "@/api/http";
+import { normalizeEtapes } from "@/lib/normalizeEtapes";
 import { cacheEtapes, getCachedEtapes } from "@/lib/recipeCache";
 
 /**
@@ -15,16 +16,18 @@ export function useEtapesRecette(
   token: string | undefined,
   autoFetch: boolean
 ) {
-  const [etapes, setEtapes] = useState<EtapeRecette[] | null>(
-    recetteId ? getCachedEtapes(recetteId) ?? null : null
-  );
+  const [etapes, setEtapes] = useState<EtapeRecette[] | null>(() => {
+    if (!recetteId) return null;
+    const cached = getCachedEtapes(recetteId);
+    return Array.isArray(cached) && cached.length > 0 ? cached : null;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchEtapes = useCallback(async () => {
     if (!recetteId || !profilId || !token) return;
     const cached = getCachedEtapes(recetteId);
-    if (cached) {
+    if (Array.isArray(cached) && cached.length > 0) {
       setEtapes(cached);
       setError(null);
       return;
@@ -33,9 +36,16 @@ export function useEtapesRecette(
     setError(null);
     try {
       const res = await getEtapesRecette(profilId, token, recetteId);
-      cacheEtapes(recetteId, res.etapes);
-      setEtapes(res.etapes);
+      const list = normalizeEtapes(res);
+      if (list.length === 0) {
+        setEtapes(null);
+        setError("Aucune étape lisible. Réessaie dans un instant.");
+        return;
+      }
+      cacheEtapes(recetteId, list);
+      setEtapes(list);
     } catch (e) {
+      setEtapes(null);
       setError(e instanceof ApiError ? e.detail : "Étapes indisponibles. Vérifie Ollama / Gemma.");
     } finally {
       setLoading(false);
