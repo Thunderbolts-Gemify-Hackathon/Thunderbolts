@@ -140,7 +140,7 @@ export default function ChatScreen() {
               ref={inputRef}
               value={draft}
               onChangeText={setDraft}
-              placeholder="Pose ta question a KaliTao…"
+              placeholder="Pose ta question a Kaly Tao…"
               placeholderTextColor={colors.muted}
               style={styles.input}
               editable={!busy}
@@ -188,7 +188,7 @@ export default function ChatScreen() {
         </View>
       }
     >
-      <Title>Assistant KaliTao</Title>
+      <Title>Assistant Kaly Tao</Title>
       <Body>
         Gemma repond avec ton profil, ton stock et nos marches seedes. Pas de
         donnees inventees.

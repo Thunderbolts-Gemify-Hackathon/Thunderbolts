@@ -1,6 +1,6 @@
-# KaliTao Frontend
+# Kaly Tao Frontend
 
-App Expo (React Native) pour KaliTao.
+App Expo (React Native) pour Kaly Tao.
 
 ## Setup
 

@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 
 /**
- * URL de l'API KaliTao.
+ * URL de l'API Kaly Tao.
  * - Web / simulateur iOS : localhost OK
  * - Téléphone physique : mets l'IP LAN du Mac, ex. http://192.168.10.65:8000
  *   via EXPO_PUBLIC_API_URL dans `.env` ou en lançant :

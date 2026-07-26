@@ -137,7 +137,7 @@ export default function DashboardScreen() {
         </View>
       }
     >
-      <Brand>KaliTao</Brand>
+      <Brand>Kaly Tao</Brand>
       <Title>Salut {name}.</Title>
       <Body>
         {done

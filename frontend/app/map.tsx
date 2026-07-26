@@ -153,7 +153,7 @@ export default function MapScreen() {
     >
       <Title>Carte des marches</Title>
       <Body>
-        OpenStreetMap + CARTO Voyager. KaliTao recommande le trajet plus safe
+        OpenStreetMap + CARTO Voyager. Kaly Tao recommande le trajet plus safe
         (a eviter visible mais non prioritaire).
       </Body>
 
