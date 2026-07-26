@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "KaliTao",
+    "name": "Kaly Tao",
     "slug": "kalitao-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -29,7 +29,20 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F3EFE6",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain"
+        }
+      ],
+      "expo-font"
+    ],
     "experiments": {
       "typedRoutes": true,
       "tsconfigPaths": true

@@ -9,6 +9,7 @@ def _creer_utilisateur(client, email: str = "hery@example.com") -> dict:
             "prenom": "Hery",
             "email": email,
             "date_naissance": "1998-05-12",
+            "mot_de_passe": "Passw0rd!",
         },
     )
     assert r.status_code == 201

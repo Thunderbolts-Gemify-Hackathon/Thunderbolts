@@ -44,7 +44,7 @@ export default function DashboardScreen() {
     error: null,
   });
 
-  const name = session?.prenom || data.compte.prenom || "toi";
+  const name = session?.prenom || "toi";
   const profilId = session?.profilId;
   const token = session?.apiToken;
 
@@ -141,7 +141,7 @@ export default function DashboardScreen() {
         </View>
       }
     >
-      <Brand>KaliTao</Brand>
+      <Brand>Kaly Tao</Brand>
       <Title>Salut {name}.</Title>
       <Body>
         {done

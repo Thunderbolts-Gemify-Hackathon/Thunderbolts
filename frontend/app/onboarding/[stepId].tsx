@@ -78,6 +78,7 @@ export default function OnboardingStepScreen() {
 
   return (
     <Screen
+      noNavClearance
       footer={
         <View style={styles.actions}>
           <Button

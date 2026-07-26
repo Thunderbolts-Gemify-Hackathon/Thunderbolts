@@ -26,7 +26,7 @@ export const radius = {
 } as const;
 
 export const type = {
-  brand: 34,
+  brand: 38,
   title: 26,
   body: 16,
   label: 13,

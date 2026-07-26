@@ -2,22 +2,6 @@ import type { StepDef } from "./types";
 
 export const STEPS: StepDef[] = [
   {
-    id: "compte",
-    title: "Ton compte",
-    subtitle: "On commence par te connaître.",
-    fields: [
-      { key: "prenom", label: "Prénom", kind: "text", placeholder: "Hery" },
-      { key: "nom", label: "Nom", kind: "text", placeholder: "Rakoto" },
-      { key: "email", label: "Email", kind: "email", placeholder: "hery@mail.mg" },
-      {
-        key: "date_naissance",
-        label: "Date de naissance",
-        kind: "date",
-        placeholder: "AAAA-MM-JJ",
-      },
-    ],
-  },
-  {
     id: "profil",
     title: "Ton profil",
     subtitle: "Pour des repas adaptés à ton objectif.",

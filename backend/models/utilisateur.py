@@ -19,6 +19,7 @@ class Utilisateur(Base):
     prenom: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     date_naissance: Mapped[date] = mapped_column(Date, nullable=False)
+    mot_de_passe_hash: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     api_token: Mapped[str] = mapped_column(
         String(64), unique=True, nullable=False, default=lambda: uuid.uuid4().hex
     )

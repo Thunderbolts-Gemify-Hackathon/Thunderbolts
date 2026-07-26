@@ -11,6 +11,7 @@ from sqlalchemy.engine import Engine
 _COLONNES = {
     "utilisateurs": [
         ("api_token", "VARCHAR(64)"),
+        ("mot_de_passe_hash", "VARCHAR(255) DEFAULT ''"),
     ],
     "profils": [
         ("utilisateur_id", "VARCHAR(36)"),

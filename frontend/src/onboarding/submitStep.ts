@@ -6,7 +6,6 @@ import {
   createProfil,
   QUARTIER_COORDS,
 } from "@/api/onboarding";
-import { createUtilisateur } from "@/api/utilisateur";
 import type { Session } from "@/session/SessionContext";
 
 import type { OnboardingData, StepId } from "./types";
@@ -38,32 +37,6 @@ export async function submitStep(
   data: OnboardingData,
   session: Session | null
 ): Promise<Result> {
-  if (stepId === "compte") {
-    const c = data.compte;
-    if (!c.nom.trim() || !c.prenom.trim() || !c.email.trim() || !c.date_naissance.trim()) {
-      throw new Error("Remplis nom, prénom, email et date de naissance.");
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(c.date_naissance)) {
-      throw new Error("Date de naissance au format AAAA-MM-JJ.");
-    }
-
-    const user = await createUtilisateur({
-      nom: c.nom.trim(),
-      prenom: c.prenom.trim(),
-      email: c.email.trim().toLowerCase(),
-      date_naissance: c.date_naissance.trim(),
-    });
-
-    return {
-      session: {
-        utilisateurId: user.id,
-        apiToken: user.api_token,
-        prenom: user.prenom,
-        email: user.email,
-      },
-    };
-  }
-
   if (stepId === "profil") {
     const s = requireSession(session);
     const p = data.profil;
