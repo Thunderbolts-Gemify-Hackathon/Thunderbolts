@@ -47,7 +47,8 @@ RULE_NO_HALLUCINATION = (
     "RÈGLE STRICTE — DONNÉES CHIFFRÉES : tu ne dois jamais halluciner un prix, un stock, "
     "une distance ou toute autre donnée chiffrée. Utilise systématiquement les outils "
     "fournis (check_budget, find_nearby_market, find_nearest_supermarkets, check_expiry, "
-    "update_stock) pour obtenir ces informations avant de répondre. Utilise "
+    "update_stock, get_local_price, add_shopping_items, swap_meal) pour obtenir "
+    "ces informations avant de répondre. Utilise "
     "find_nearby_market quand un ingrédient précis est demandé, et "
     "find_nearest_supermarkets quand la demande est générale (\"le marché le plus proche\", "
     "\"comment y aller\") sans produit précis."
@@ -106,7 +107,12 @@ class PromptContext:
         )
 
 
-def build_system_prompt(profil_complet: dict[str, Any], *, voice: bool = False) -> str:
+def build_system_prompt(
+    profil_complet: dict[str, Any],
+    *,
+    voice: bool = False,
+    memories: list[dict[str, Any]] | None = None,
+) -> str:
     """Prompt système à partir du JSON GET /onboarding/{id}/complet.
 
     `voice=True` (assistant vocal) ajoute une consigne de style parlé — la réponse
@@ -125,6 +131,7 @@ def build_system_prompt(profil_complet: dict[str, Any], *, voice: bool = False) 
         _describe_preferences(ctx.preferences),
         _describe_budget(ctx.budget),
         _describe_localisation(ctx.localisation),
+        _describe_memories(memories or profil_complet.get("memories")),
         RULE_OWN_DATA,
         RULE_NO_HALLUCINATION,
         RULE_FOOD_SAFETY,
@@ -282,3 +289,14 @@ def _describe_localisation(localisation: LocalisationOut | None) -> str:
     if details:
         return f"Localisation : {details}."
     return "Localisation : coordonnées connues, quartier non précisé."
+
+
+def _describe_memories(memories: list[dict[str, Any]] | None) -> str:
+    if not memories:
+        return "Mémoires foyer : aucune pour l'instant."
+    lignes = ["Mémoires foyer (à respecter si pertinent) :"]
+    for m in memories[:5]:
+        cle = m.get("cle") or "note"
+        contenu = m.get("contenu") or ""
+        lignes.append(f"- {cle} : {contenu}")
+    return "\n".join(lignes)

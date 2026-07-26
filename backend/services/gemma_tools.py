@@ -70,6 +70,51 @@ TOOLS: list[dict[str, Any]] = [
             "required": ["ingredient_nom", "quantite_a_deduire"],
         },
     },
+    {
+        "name": "add_shopping_items",
+        "description": "Ajoute des articles à la liste de courses du profil",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "label": {"type": "string"},
+                            "quantite": {"type": "number"},
+                            "unite": {"type": "string"},
+                        },
+                    },
+                },
+            },
+            "required": ["items"],
+        },
+    },
+    {
+        "name": "swap_meal",
+        "description": "Remplace le prochain dîner du planning par une recette (id connu)",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "recette_id": {"type": "string"},
+                "jour": {"type": "string"},
+            },
+            "required": ["recette_id"],
+        },
+    },
+    {
+        "name": "get_local_price",
+        "description": "Prix local crowd/catalogue pour un ingrédient (par nom)",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "ingredient_nom": {"type": "string"},
+                "quartier": {"type": "string"},
+            },
+            "required": ["ingredient_nom"],
+        },
+    },
 ]
 
 
@@ -163,6 +208,31 @@ def _dispatch(db: Session, profil_id: str, tool_name: str, arguments: dict) -> A
             ingredient_id=ingredient_id,
             quantite_a_deduire=float(arguments["quantite_a_deduire"]),
         )
+
+    if tool_name == "add_shopping_items":
+        from backend.services.foyer_agent_service import add_shopping_items_tool
+
+        return add_shopping_items_tool(db, profil_id, list(arguments.get("items") or []))
+
+    if tool_name == "swap_meal":
+        from backend.services.foyer_agent_service import swap_meal_tool
+
+        return swap_meal_tool(
+            db,
+            profil_id,
+            str(arguments["recette_id"]),
+            jour=arguments.get("jour"),
+        )
+
+    if tool_name == "get_local_price":
+        from backend.models.localisation import Localisation
+        from backend.services.price_service import get_local_price
+
+        quartier = arguments.get("quartier")
+        if not quartier:
+            loc = db.query(Localisation).filter(Localisation.profil_id == profil_id).first()
+            quartier = loc.quartier if loc else None
+        return get_local_price(db, arguments["ingredient_nom"], quartier=quartier)
 
     raise ValueError(f"Outil inconnu: {tool_name}")
 
