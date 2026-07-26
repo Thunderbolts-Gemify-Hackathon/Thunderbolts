@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.schemas.composites import MarketMatchOut
-from backend.services import market_service
+from backend.schemas.market_panier import PanierCheckRequest, PanierCheckResponse
+from backend.services import market_panier_service, market_service
 
 router = APIRouter(prefix="/market", tags=["market"])
 
@@ -24,4 +25,14 @@ def nearby_market(
         lon=lon,
         rayon_km=rayon_km,
         profil_id=profil_id,
+    )
+
+
+@router.post("/panier-check", response_model=PanierCheckResponse)
+def panier_check(payload: PanierCheckRequest, db: Session = Depends(get_db)):
+    return market_panier_service.check_panier(
+        db,
+        [i.model_dump() for i in payload.items],
+        payload.budget,
+        quartier=payload.quartier,
     )
