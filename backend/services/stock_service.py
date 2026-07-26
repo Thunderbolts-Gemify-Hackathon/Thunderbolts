@@ -232,3 +232,64 @@ def recrediter_stock(
     if quantite < 0:
         raise HTTPException(status_code=400, detail="quantite doit être >= 0")
     return _ajuster_stock(db, profil_id, ingredient_id, quantite, commit=commit)
+
+
+def approvisionner(
+    db: Session,
+    profil_id: str,
+    items: list,
+    *,
+    label: str | None = "Courses",
+) -> dict:
+    """Ajoute des quantités au stock et déduit le budget si des prix sont fournis."""
+    from backend.schemas.depense import DepenseCreate
+    from backend.schemas.stock import IngredientStockUpsert
+    from backend.services import budget_service
+
+    cout_total = 0.0
+    for item in items:
+        ingredient_id = item.ingredient_id if hasattr(item, "ingredient_id") else item["ingredient_id"]
+        quantite = float(item.quantite if hasattr(item, "quantite") else item["quantite"])
+        unite = item.unite if hasattr(item, "unite") else item.get("unite", "g")
+        prix = item.prix if hasattr(item, "prix") else item.get("prix")
+
+        try:
+            ligne = _get_ingredient_stock(db, profil_id, ingredient_id)
+            ligne.quantite_disponible = float(ligne.quantite_disponible) + quantite
+            db.flush()
+        except HTTPException:
+            upsert_ingredient_stock(
+                db,
+                profil_id,
+                IngredientStockUpsert(
+                    ingredient_id=ingredient_id,
+                    quantite_disponible=quantite,
+                    unite=unite or "g",
+                ),
+            )
+        if prix is not None:
+            cout_total += float(prix)
+
+    depense_out = None
+    budget = None
+    try:
+        budget = budget_service._get_budget_profil(db, profil_id)
+    except HTTPException:
+        budget = None
+
+    if cout_total > 0 and budget is not None:
+        depense_out = budget_service.enregistrer_depense(
+            db,
+            profil_id,
+            DepenseCreate(montant=round(cout_total, 2), source="courses", label=label),
+            commit=True,
+        )
+        budget = budget_service._get_budget_profil(db, profil_id)
+    else:
+        db.commit()
+
+    return {
+        "stock": get_stock_profil(db, profil_id),
+        "depense": depense_out,
+        "montant_restant": budget.montant_restant if budget else 0.0,
+    }
