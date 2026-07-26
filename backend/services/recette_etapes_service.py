@@ -96,6 +96,18 @@ def _unwrap_liste_etapes(brut: list) -> list:
     return brut
 
 
+def _titre_lisible(valeur: object) -> str:
+    """Refuse les titres qui ressemblent encore à du JSON brut ({, [, "titre")."""
+    titre = str(valeur or "").strip()
+    if not titre:
+        return ""
+    if titre[0] in "{[" or '"titre"' in titre or "'titre'" in titre:
+        return ""
+    # Coupe un éventuel préfixe markdown / numérotation déjà présent
+    titre = re.sub(r"^\s*(?:\d+[.)]|[-*])\s*", "", titre).strip(" *\"'")
+    return titre[:180]
+
+
 def _parse_etapes(contenu: str, noms_ingredients: list[str]) -> list[EtapeRecette]:
     """JSON structuré en priorité ; repli sur un découpage markdown/numéroté si le
     modèle n'a pas respecté le format (garde la fonctionnalité utilisable quand même)."""
@@ -105,26 +117,51 @@ def _parse_etapes(contenu: str, noms_ingredients: list[str]) -> list[EtapeRecett
     if brut:
         brut = _unwrap_liste_etapes(brut)
         etapes: list[EtapeRecette] = []
-        for i, item in enumerate(brut, start=1):
+        for item in brut:
+            if isinstance(item, str):
+                titre = _titre_lisible(item)
+                if titre:
+                    etapes.append(
+                        EtapeRecette(numero=len(etapes) + 1, titre=titre, ingredients=[])
+                    )
+                continue
             if not isinstance(item, dict):
                 continue
-            titre = str(
+            titre = _titre_lisible(
                 item.get("titre")
                 or item.get("titre_etape")
                 or item.get("etape")
                 or item.get("instruction")
                 or item.get("description")
-                or ""
-            ).strip()
+                or item.get("step")
+                or item.get("texte")
+            )
             if not titre:
                 continue
-            ingredients_bruts = item.get("ingredients")
-            ingredients = _filtrer_ingredients(ingredients_bruts, canonique)
-            etapes.append(EtapeRecette(numero=i, titre=titre, ingredients=ingredients))
-        if etapes:
+            ingredients = _filtrer_ingredients(item.get("ingredients"), canonique)
+            etapes.append(
+                EtapeRecette(numero=len(etapes) + 1, titre=titre, ingredients=ingredients)
+            )
+        # Mode cuisine a besoin de plusieurs étapes. 1 seule = souvent du JSON
+        # mal découpé → on préfère le texte ou le fallback déterministe.
+        if len(etapes) >= 2:
             return etapes
+        # 0 ou 1 étape JSON : ne pas tenter un découpage texte du blob JSON
+        # (sinon on affiche des ``` / accolades). → fallback déterministe.
+        if brut and _contenu_ressemble_json(contenu):
+            return []
 
-    return _parse_etapes_texte(contenu, canonique)
+    texte = _parse_etapes_texte(contenu, canonique)
+    if len(texte) >= 2:
+        return texte
+    return []
+
+
+def _contenu_ressemble_json(contenu: str) -> bool:
+    t = (contenu or "").strip()
+    if t.startswith("```"):
+        return True
+    return t[:1] in "{["
 
 
 def _filtrer_ingredients(valeurs: object, canonique: dict[str, str]) -> list[str]:
@@ -145,17 +182,21 @@ _LIGNE_NUMEROTEE = re.compile(r"^\s*(?:\d+[.)]|[-*])\s*(.+)$")
 
 def _parse_etapes_texte(contenu: str, canonique: dict[str, str]) -> list[EtapeRecette]:
     """Dernier repli : le modèle a répondu en texte/markdown au lieu de JSON.
-    On découpe par ligne numérotée/à puces, sans prétendre isoler les ingrédients
-    par étape (mieux qu'un échec total)."""
-    lignes = [l.strip(" *#") for l in contenu.splitlines() if l.strip()]
+    On découpe par ligne numérotée/à puces. On n'affiche JAMAIS le JSON brut
+    comme titre (sinon l'utilisateur voit des accolades)."""
+    stripped = (contenu or "").strip()
+    if stripped[:1] in "{[":
+        # Bloc JSON illisible en tant que texte → laisser le fallback déterministe
+        return []
+
+    lignes = [l.strip(" *#") for l in stripped.splitlines() if l.strip()]
     etapes: list[EtapeRecette] = []
     for ligne in lignes:
+        if ligne.startswith("```") or ligne[:1] in "{[" or '"titre"' in ligne:
+            continue
         m = _LIGNE_NUMEROTEE.match(ligne)
-        titre = m.group(1).strip(" *") if m else ligne
+        titre = _titre_lisible(m.group(1) if m else ligne)
         if not titre:
             continue
         etapes.append(EtapeRecette(numero=len(etapes) + 1, titre=titre, ingredients=[]))
-    if etapes:
-        return etapes[:8]
-
-    return [EtapeRecette(numero=1, titre=contenu.strip(), ingredients=list(canonique.values()))]
+    return etapes[:8]

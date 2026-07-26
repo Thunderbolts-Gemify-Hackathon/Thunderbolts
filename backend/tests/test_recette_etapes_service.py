@@ -39,10 +39,20 @@ def test_generer_etapes_parse_le_json_structure(db_session):
 
 def test_generer_etapes_json_dans_une_fence_markdown(db_session):
     recette_id = _setup_recette(db_session)
+    # Une seule étape JSON → fallback multi-étapes (mode cuisine a besoin de plusieurs)
     contenu = '```json\n[{"titre": "Servir chaud.", "ingredients": []}]\n```'
     client = FakeGemmaClient(contenu)
     etapes = recette_etapes_service.generer_etapes(db_session, recette_id, client=client)
-    assert etapes == [recette_etapes_service.EtapeRecette(numero=1, titre="Servir chaud.", ingredients=[])]
+    assert len(etapes) >= 3
+    assert all("{" not in e.titre for e in etapes)
+
+
+def test_generer_etapes_refuse_json_brut_comme_titre(db_session):
+    recette_id = _setup_recette(db_session)
+    client = FakeGemmaClient('{"titre": "Couper", "ingredients": []}')
+    etapes = recette_etapes_service.generer_etapes(db_session, recette_id, client=client)
+    assert len(etapes) >= 3
+    assert all("{" not in e.titre and "[" not in e.titre for e in etapes)
 
 
 def test_generer_etapes_repli_texte_si_pas_de_json(db_session):
@@ -67,11 +77,17 @@ def test_generer_etapes_reponse_vide_utilise_fallback(db_session):
 
 
 def test_generer_etapes_accepte_enveloppe_etapes(db_session):
-    """Gemma renvoie parfois {"etapes": [...]} au lieu d'un tableau direct."""
+    """Gemma renvoie parfois {"etapes": [...]} — plusieurs items sont gardés."""
     recette_id = _setup_recette(db_session)
-    contenu = '{"etapes": [{"titre": "Couper le poulet.", "ingredients": ["poulet"]}]}'
+    contenu = (
+        '{"etapes": ['
+        '{"titre": "Couper le poulet.", "ingredients": ["poulet"]},'
+        '{"titre": "Faire cuire le riz.", "ingredients": ["riz"]}'
+        "]}"
+    )
     client = FakeGemmaClient(contenu)
     etapes = recette_etapes_service.generer_etapes(db_session, recette_id, client=client)
-    assert len(etapes) == 1
+    assert len(etapes) == 2
     assert etapes[0].titre == "Couper le poulet."
     assert etapes[0].ingredients == ["poulet"]
+    assert etapes[1].ingredients == ["riz"]

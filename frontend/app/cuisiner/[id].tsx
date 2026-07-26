@@ -52,7 +52,6 @@ export default function ModeCuisineScreen() {
   const [cameraReady, setCameraReady] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
-  const autoHandsFreeTried = useRef(false);
 
   const [showGuide, setShowGuide] = useState(false);
   const [showQuit, setShowQuit] = useState(false);
@@ -106,38 +105,31 @@ export default function ModeCuisineScreen() {
       if (!res.granted) {
         Alert.alert(
           "Caméra indisponible",
-          "Sans accès caméra, utilise les boutons pour changer d'étape."
+          "Sans accès caméra, utilise le bouton « Étape suivante » en bas."
         );
         return false;
       }
     }
     setCameraReady(false);
     setHandsFree(true);
-    const vu = await AsyncStorage.getItem(GUIDE_VU_KEY);
-    if (!vu) {
-      setShowGuide(true);
-      await AsyncStorage.setItem(GUIDE_VU_KEY, "1");
-    }
+    setShowGuide(true);
+    await AsyncStorage.setItem(GUIDE_VU_KEY, "1");
     return true;
   }, [permission, requestPermission]);
 
   const toggleHandsFree = useCallback(async () => {
     if (handsFree) {
       setHandsFree(false);
+      setCameraReady(false);
       return;
     }
     await enableHandsFree();
   }, [handsFree, enableHandsFree]);
 
-  // Dès que les étapes sont prêtes, active le mode mains libres une fois
-  // (demande caméra + guide) pour que le geste soit testable sans chercher
-  // l'icône discrète en haut à droite.
+  // Remet à l'étape 1 quand une nouvelle liste d'étapes arrive
   useEffect(() => {
-    if (autoHandsFreeTried.current) return;
-    if (!etapes?.length || loading || handsFree) return;
-    autoHandsFreeTried.current = true;
-    void enableHandsFree();
-  }, [etapes, loading, handsFree, enableHandsFree]);
+    setStepIndex(0);
+  }, [etapes, recette?.id]);
 
   const requestQuit = useCallback(() => {
     setShowQuit(true);
@@ -272,10 +264,25 @@ export default function ModeCuisineScreen() {
                 <Text style={styles.handsFreeEmoji}>✋</Text>
                 <Text style={styles.handsFreeCtaLabel}>Activer le mode mains libres</Text>
                 <Text style={styles.handsFreeCtaHint}>
-                  Recouvre la caméra pour passer à l’étape suivante
+                  Recouvre la caméra avant (selfie) ~1 seconde pour passer à l’étape suivante
                 </Text>
               </Pressable>
-            ) : null}
+            ) : (
+              <View style={styles.handsFreeActive}>
+                <Text style={styles.handsFreeEmoji}>✋</Text>
+                <Text style={styles.handsFreeCtaLabel}>Mode mains libres</Text>
+                <Text style={styles.handsFreeCtaHint}>
+                  {cameraReady
+                    ? "Recouvre la caméra avant avec ta main jusqu’à ce que l’écran s’assombrisse"
+                    : "Préparation de la caméra…"}
+                </Text>
+                {coverProgress > 0 ? (
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${Math.round(coverProgress * 100)}%` }]} />
+                  </View>
+                ) : null}
+              </View>
+            )}
           </>
         ) : (
           <View style={styles.center}>
@@ -287,15 +294,15 @@ export default function ModeCuisineScreen() {
         )}
       </ScrollView>
 
+      {/* Caméra frontale invisible : sert uniquement de capteur (évite le scintillement). */}
       {handsFree && permission?.granted ? (
-        <View style={styles.cameraDock}>
+        <View style={styles.cameraSensor} pointerEvents="none">
           <CameraView
             ref={cameraRef}
-            style={styles.cameraPreview}
-            facing="back"
+            style={styles.cameraHidden}
+            facing="front"
             onCameraReady={() => setCameraReady(true)}
           />
-          <Text style={styles.cameraHint}>Recouvre l'objectif pour avancer</Text>
         </View>
       ) : null}
 
@@ -336,10 +343,12 @@ export default function ModeCuisineScreen() {
             <View style={styles.guideIcon}>
               <Text style={styles.guideEmoji}>✋</Text>
             </View>
-            <Text style={styles.guideTitle}>Mode mains libres activé</Text>
+            <Text style={styles.guideTitle}>Comment ça marche ?</Text>
             <Text style={styles.guideBody}>
-              Recouvre l'objectif de la caméra avec ta main et maintiens jusqu'à ce que l'écran
-              s'assombrisse : l'étape suivante s'affiche automatiquement.
+              1. La caméra avant (selfie) écoute en arrière-plan.{"\n"}
+              2. Recouvre-la avec ta main pendant environ 1 seconde.{"\n"}
+              3. L’écran s’assombrit → étape suivante.{"\n\n"}
+              Tu peux aussi utiliser le bouton « Étape suivante » en bas.
             </Text>
             <Pressable onPress={() => setShowGuide(false)} style={styles.guideBtn}>
               <Text style={styles.guideBtnLabel}>Compris</Text>
@@ -491,35 +500,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 4,
   },
-  handsFreeEmoji: { fontSize: 28 },
-  handsFreeCtaLabel: { fontSize: type.body, fontWeight: "800", color: colors.ink },
-  handsFreeCtaHint: { fontSize: type.small, color: colors.muted, textAlign: "center" },
-  cameraDock: {
-    position: "absolute",
-    right: space.lg,
-    bottom: 140,
+  handsFreeActive: {
+    marginTop: space.xl,
+    backgroundColor: "rgba(31,61,43,0.1)",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.brandSoft,
+    padding: space.lg,
     alignItems: "center",
     gap: 6,
   },
-  cameraPreview: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    overflow: "hidden",
-    borderWidth: 3,
-    borderColor: colors.brand,
-  },
-  cameraHint: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.ink,
-    backgroundColor: "rgba(255,255,255,0.85)",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    maxWidth: 120,
+  handsFreeEmoji: { fontSize: 28 },
+  handsFreeCtaLabel: { fontSize: type.body, fontWeight: "800", color: colors.ink },
+  handsFreeCtaHint: {
+    fontSize: type.small,
+    color: colors.muted,
     textAlign: "center",
+    lineHeight: 18,
   },
+  progressTrack: {
+    marginTop: 8,
+    width: "100%",
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(0,0,0,0.08)",
+    overflow: "hidden",
+  },
+  progressFill: { height: "100%", backgroundColor: colors.brand, borderRadius: 3 },
+  cameraSensor: {
+    position: "absolute",
+    width: 1,
+    height: 1,
+    opacity: 0.01,
+    overflow: "hidden",
+    left: 0,
+    bottom: 0,
+  },
+  cameraHidden: { width: 48, height: 48 },
   timerBadge: {
     position: "absolute",
     left: space.lg,

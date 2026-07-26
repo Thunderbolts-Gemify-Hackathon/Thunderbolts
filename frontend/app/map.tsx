@@ -18,7 +18,10 @@ import { ApiError } from "@/api/http";
 import { findNearbyMarket, pickSafest, type MarketMatch } from "@/api/market";
 import { QUARTIER_COORDS } from "@/api/onboarding";
 import { listIngredients, type Ingredient } from "@/api/stock";
-import { buildMarketMapHtml } from "@/lib/mapHtml";
+import {
+  buildMarketMapShellHtml,
+  matchesToMapPoints,
+} from "@/lib/mapHtml";
 import { formatDistanceM, formatDureeS } from "@/lib/travelEstimate";
 import { useOnboarding } from "@/onboarding/store";
 import { useSession } from "@/session/SessionContext";
@@ -84,6 +87,7 @@ export default function MapScreen() {
     distanceM: number;
     durationS: number;
   } | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   const selectedIngredient = catalog.find((i) => i.id === selectedId) ?? null;
   const recommended = useMemo(() => pickSafest(matches), [matches]);
@@ -161,17 +165,21 @@ export default function MapScreen() {
     if (!loading && selectedId && coords) void search();
   }, [loading, selectedId, coords, search]);
 
-  const html = useMemo(() => {
+  // HTML stable : ne dépend que de la position. Les marchés arrivent ensuite
+  // via injectJavaScript (pas de reload Leaflet à chaque recherche).
+  const shellHtml = useMemo(() => {
     if (!coords) return "";
-    return buildMarketMapHtml({
+    return buildMarketMapShellHtml({
       homeLat: coords.lat,
       homeLon: coords.lon,
       homeLabel: quartier ? `Chez toi (${quartier})` : "Chez toi",
-      matches,
-      recommendedId: recommended?.point_de_vente.id ?? null,
-      rayonKm,
+      rayonKm: 15,
     });
-  }, [coords, quartier, matches, recommended, rayonKm]);
+  }, [coords, quartier]);
+
+  useEffect(() => {
+    setMapReady(false);
+  }, [shellHtml]);
 
   const suggestions = useMemo(() => {
     if (!query.trim()) return [];
@@ -179,11 +187,36 @@ export default function MapScreen() {
     return catalog.filter((i) => i.nom.toLowerCase().includes(q)).slice(0, 6);
   }, [query, catalog]);
 
-  const focusPoint = (id: string) => {
+  const pushPointsToMap = useCallback(() => {
+    if (!mapReady || !webviewRef.current) return;
+    const points = matchesToMapPoints(
+      matches,
+      recommended?.point_de_vente.id ?? null
+    );
+    const focusId = recommended?.point_de_vente.id ?? points[0]?.id ?? null;
+    webviewRef.current.injectJavaScript(
+      `window.setPoints(${JSON.stringify(points)}, ${JSON.stringify(focusId)}); true;`
+    );
+  }, [mapReady, matches, recommended]);
+
+  useEffect(() => {
+    pushPointsToMap();
+  }, [pushPointsToMap]);
+
+  useEffect(() => {
+    if (!mapReady || !webviewRef.current) return;
+    webviewRef.current.injectJavaScript(
+      `window.setRayon(${JSON.stringify(rayonKm)}); true;`
+    );
+  }, [mapReady, rayonKm]);
+
+  const focusPoint = (id: string, withRoute = false) => {
     setSelectedPdvId(id);
-    setRouteInfo(null);
+    if (withRoute) {
+      setRouteInfo(null);
+    }
     webviewRef.current?.injectJavaScript(
-      `window.focusPoint(${JSON.stringify(id)}); true;`,
+      `window.focusPoint(${JSON.stringify(id)}, ${withRoute ? "true" : "false"}); true;`
     );
   };
 
@@ -211,55 +244,73 @@ export default function MapScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
       <View style={styles.mapArea}>
-        {coords && matches.length > 0 ? (
-          <WebView
-            ref={webviewRef}
-            originWhitelist={["*"]}
-            source={{ html }}
-            style={styles.map}
-            onMessage={(ev) => {
-              try {
-                const msg = JSON.parse(ev.nativeEvent.data) as {
-                  type?: string;
-                  id?: string;
-                  distanceM?: number;
-                  durationS?: number;
-                };
-                if (msg.type === "select" && msg.id) {
-                  setSelectedPdvId(msg.id);
-                  setRouteInfo(null);
-                  const idx = sortedMatches.findIndex(
-                    (m) => m.point_de_vente.id === msg.id,
-                  );
-                  if (idx >= 0)
-                    carouselRef.current?.scrollToIndex({
-                      index: idx,
-                      animated: true,
+        {coords && shellHtml ? (
+          <>
+            <WebView
+              ref={webviewRef}
+              originWhitelist={["*"]}
+              source={{ html: shellHtml }}
+              style={styles.map}
+              // Cache WebView + ne pas recharger pour rien
+              cacheEnabled
+              javaScriptEnabled
+              domStorageEnabled
+              setSupportMultipleWindows={false}
+              onLoadEnd={() => {
+                // filet si le postMessage "ready" arrive trop tôt
+                setTimeout(() => setMapReady(true), 50);
+              }}
+              onMessage={(ev) => {
+                try {
+                  const msg = JSON.parse(ev.nativeEvent.data) as {
+                    type?: string;
+                    id?: string;
+                    distanceM?: number;
+                    durationS?: number;
+                  };
+                  if (msg.type === "ready") {
+                    setMapReady(true);
+                  } else if (msg.type === "select" && msg.id) {
+                    setSelectedPdvId(msg.id);
+                    setRouteInfo(null);
+                    const idx = sortedMatches.findIndex(
+                      (m) => m.point_de_vente.id === msg.id,
+                    );
+                    if (idx >= 0)
+                      carouselRef.current?.scrollToIndex({
+                        index: idx,
+                        animated: true,
+                      });
+                  } else if (
+                    msg.type === "route" &&
+                    msg.id &&
+                    msg.distanceM != null &&
+                    msg.durationS != null
+                  ) {
+                    setRouteInfo({
+                      id: msg.id,
+                      distanceM: msg.distanceM,
+                      durationS: msg.durationS,
                     });
-                } else if (
-                  msg.type === "route" &&
-                  msg.id &&
-                  msg.distanceM != null &&
-                  msg.durationS != null
-                ) {
-                  setRouteInfo({
-                    id: msg.id,
-                    distanceM: msg.distanceM,
-                    durationS: msg.durationS,
-                  });
+                  }
+                } catch {
+                  /* ignore */
                 }
-              } catch {
-                /* ignore */
-              }
-            }}
-          />
+              }}
+            />
+            {(loading || searching || !mapReady) && (
+              <View style={styles.mapLoadingOverlay} pointerEvents="none">
+                <ActivityIndicator color={colors.brand} />
+              </View>
+            )}
+          </>
         ) : (
           <View style={styles.mapPlaceholder}>
-            {loading || searching ? (
+            {loading ? (
               <ActivityIndicator color={colors.brand} />
             ) : (
               <Text style={styles.placeholderText}>
-                {error ?? "Choisis un ingrédient pour voir les marchés."}
+                {error ?? "Quartier manquant. Termine l'onboarding localisation."}
               </Text>
             )}
           </View>
@@ -433,7 +484,7 @@ export default function MapScreen() {
                   item.point_de_vente.id === recommended?.point_de_vente.id
                 }
                 width={cardWidth}
-                onVoirTrajet={() => focusPoint(item.point_de_vente.id)}
+                onVoirTrajet={() => focusPoint(item.point_de_vente.id, true)}
                 real={
                   routeInfo && routeInfo.id === item.point_de_vente.id
                     ? {
@@ -461,6 +512,12 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   mapArea: { flex: 1 },
   map: { flex: 1, backgroundColor: colors.brandSoft },
+  mapLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(243,239,230,0.35)",
+  },
   mapPlaceholder: {
     flex: 1,
     backgroundColor: colors.brandSoft,
