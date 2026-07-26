@@ -17,12 +17,18 @@ from backend.schemas.gemma import (
     ChatResponse,
     DirectiveCoursesRequest,
     DirectiveCoursesResponse,
+    EtapesRecetteResponse,
     RemedeResponse,
     SuggestionRepasRequest,
     SuggestionRepasResponse,
 )
 from backend.schemas.planning import PeriodePlanning, PlanningOut
-from backend.services import onboarding_suite, planning_generation_service, repas_suggestion_service
+from backend.services import (
+    onboarding_suite,
+    planning_generation_service,
+    recette_etapes_service,
+    repas_suggestion_service,
+)
 from backend.services.directive_courses_service import build_directive_courses
 from backend.services.gemma_agent import run_tool_loop
 from backend.services.gemma_client import GemmaClient
@@ -106,6 +112,22 @@ def suggestion_repas(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return resultat
+
+
+@router.post("/{profil_id}/recette/{recette_id}/etapes", response_model=EtapesRecetteResponse)
+def etapes_recette(
+    recette_id: str,
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    """Explique une recette existante en étapes courtes (Gemma, sans outils)."""
+    try:
+        etapes = recette_etapes_service.generer_etapes(db, recette_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return EtapesRecetteResponse(etapes=etapes)
 
 
 @router.post("/{profil_id}/suggestion-remede", response_model=RemedeResponse)

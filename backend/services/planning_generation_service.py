@@ -17,7 +17,7 @@ from backend.services.prompts import (
     build_system_prompt,
 )
 
-JOURS_PAR_PERIODE = {"semaine": 7, "mois": 30}
+JOURS_PAR_PERIODE = {"jour": 1, "semaine": 7, "mois": 30}
 
 
 def generer_planning(

@@ -32,6 +32,10 @@ class RemedeResponse(BaseModel):
     remede: str
 
 
+class EtapesRecetteResponse(BaseModel):
+    etapes: str
+
+
 class DirectiveCoursesRequest(BaseModel):
     ingredient_id: Optional[str] = None
     ingredient_nom: Optional[str] = None

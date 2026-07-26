@@ -20,8 +20,8 @@ OLLAMA_TIMEOUT_S = float(os.getenv("OLLAMA_TIMEOUT_S", "100"))
 GEMMA4_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 TOOL_JSON_INSTRUCTION = (
     "Réponds uniquement en JSON valide, sans markdown : "
-    '{"tool_call": {"name": "<outil>", "arguments": {}}} '
-    'ou {"message": "<texte>"}.\n\nOutils :\n{tools_json}'
+    '{{"tool_call": {{"name": "<outil>", "arguments": {{}}}}}} '
+    'ou {{"message": "<texte>"}}.\n\nOutils :\n{tools_json}'
 )
 
 

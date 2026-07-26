@@ -145,6 +145,24 @@ def build_planning_user_prompt(
     )
 
 
+def build_etapes_system_prompt() -> str:
+    return (
+        "Tu es Kaly Tao, assistant culinaire. Réponds uniquement en français, "
+        "de façon brève, et strictement dans le format demandé — sans phrase "
+        "d'introduction ni de conclusion, sans appel d'outil."
+    )
+
+
+def build_etapes_user_prompt(nom: str, ingredients: list[str]) -> str:
+    liste = ", ".join(ingredients) if ingredients else "aucun ingrédient renseigné"
+    return (
+        f'Explique comment préparer "{nom}" en 3 à 5 étapes courtes, numérotées. '
+        "Pour chaque étape : une phrase en gras, puis en dessous les ingrédients de "
+        f"cette étape pris uniquement parmi cette liste (n'en invente aucun autre) : {liste}. "
+        "Réponds uniquement avec la liste numérotée en Markdown."
+    )
+
+
 def _parse_optional(model: type[ModelT], data: dict[str, Any] | None) -> ModelT | None:
     return model.model_validate(data) if data else None
 
