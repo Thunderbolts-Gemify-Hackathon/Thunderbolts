@@ -6,6 +6,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 import { ApiError } from "@/api/http";
 import { formatAr } from "@/api/market";
 import { QUARTIER_COORDS } from "@/api/onboarding";
+import { terminerCourses } from "@/api/courses";
 import {
   getListeCoursesPeriode,
   type ListeCoursesPeriode,
@@ -52,7 +53,8 @@ export default function CoursesScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [catalogue, setCatalogue] = useState<string[]>([]);
-  const custom = useCustomCourses(profilId);
+  const [terminating, setTerminating] = useState(false);
+  const custom = useCustomCourses(profilId, token);
 
   const quartier = data.localisation.quartier;
   const coords = quartier ? QUARTIER_COORDS[quartier] : null;
@@ -104,10 +106,35 @@ export default function CoursesScreen() {
   const customVisible =
     filter === "acheter" ? custom.items.filter((i) => !i.fait) : custom.items;
 
+  const onTerminer = async () => {
+    if (!profilId || !token) return;
+    const ids = custom.items.filter((i) => i.fait && !i.id.startsWith("local-")).map((i) => i.id);
+    if (!ids.length) {
+      setError("Coche d'abord les articles achetés.");
+      return;
+    }
+    setTerminating(true);
+    setError(null);
+    try {
+      await terminerCourses(profilId, token, ids);
+      await custom.reload();
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.detail : "Impossible de terminer les courses");
+    } finally {
+      setTerminating(false);
+    }
+  };
+
   return (
     <Screen
       footer={
         <View style={styles.actions}>
+          <Button
+            label="Courses terminées → stock"
+            onPress={() => void onTerminer()}
+            disabled={loading || terminating}
+          />
           <Button label="Actualiser" onPress={() => void load()} disabled={loading} />
           <Button
             label="Voir le planning"

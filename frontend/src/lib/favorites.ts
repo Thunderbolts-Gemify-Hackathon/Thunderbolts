@@ -1,14 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useState } from "react";
 
-/**
- * Favoris purement locaux (aucun endpoint backend pour ça) : persistés sur
- * l'appareil, pas synchronisés entre appareils. On ne fait pas semblant
- * que c'est plus que ça.
- */
+import { getFavori, toggleFavori as apiToggle } from "@/api/favoris";
+import { useSession } from "@/session/SessionContext";
+
 const STORAGE_KEY = "kalitao.favoris";
 
-async function readAll(): Promise<string[]> {
+async function readLocal(): Promise<string[]> {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
   if (!raw) return [];
   try {
@@ -19,27 +17,58 @@ async function readAll(): Promise<string[]> {
   }
 }
 
+async function writeLocal(ids: string[]) {
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+}
+
 export function useFavori(recetteId: string) {
+  const { session } = useSession();
   const [favori, setFavori] = useState(false);
+  const profilId = session?.profilId;
+  const token = session?.apiToken;
 
   useEffect(() => {
     let mounted = true;
-    readAll().then((ids) => {
+    (async () => {
+      if (profilId && token && recetteId) {
+        try {
+          const r = await getFavori(profilId, token, recetteId);
+          if (mounted) setFavori(r.favori);
+          return;
+        } catch {
+          /* fallback local */
+        }
+      }
+      const ids = await readLocal();
       if (mounted) setFavori(ids.includes(recetteId));
-    });
+    })();
     return () => {
       mounted = false;
     };
-  }, [recetteId]);
+  }, [recetteId, profilId, token]);
 
   const toggle = useCallback(async () => {
-    const ids = await readAll();
+    if (profilId && token && recetteId) {
+      try {
+        const r = await apiToggle(profilId, token, recetteId);
+        setFavori(r.favori);
+        const ids = await readLocal();
+        const next = r.favori
+          ? [...new Set([...ids, recetteId])]
+          : ids.filter((id) => id !== recetteId);
+        await writeLocal(next);
+        return;
+      } catch {
+        /* local fallback */
+      }
+    }
+    const ids = await readLocal();
     const next = ids.includes(recetteId)
       ? ids.filter((id) => id !== recetteId)
       : [...ids, recetteId];
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    await writeLocal(next);
     setFavori(next.includes(recetteId));
-  }, [recetteId]);
+  }, [recetteId, profilId, token]);
 
   return { favori, toggle };
 }
