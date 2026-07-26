@@ -50,8 +50,11 @@ export default function ModeCuisineScreen() {
   const [stepIndex, setStepIndex] = useState(0);
   const [handsFree, setHandsFree] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
+  const [handPresent, setHandPresent] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  const stepIndexRef = useRef(0);
+  const totalRef = useRef(0);
 
   const [showGuide, setShowGuide] = useState(false);
   const [showQuit, setShowQuit] = useState(false);
@@ -67,6 +70,8 @@ export default function ModeCuisineScreen() {
   const stepIngredients = Array.isArray(step?.ingredients)
     ? step.ingredients
     : [];
+  stepIndexRef.current = stepIndex;
+  totalRef.current = total;
 
   useEffect(() => {
     void activateKeepAwakeAsync("mode-cuisine");
@@ -77,25 +82,37 @@ export default function ModeCuisineScreen() {
 
   const goNext = useCallback(() => {
     setStepIndex((i) => {
-      const next = Math.min(i + 1, Math.max(total - 1, 0));
+      const max = Math.max(totalRef.current - 1, 0);
+      const next = Math.min(i + 1, max);
       if (next !== i) {
         void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        const nextStep = etapesList[next];
+        if (nextStep?.titre) {
+          speak(`Étape ${nextStep.numero}. ${nextStep.titre}`);
+        }
       }
       return next;
     });
-  }, [total]);
+  }, [etapesList]);
 
   const goPrev = useCallback(() => {
     setStepIndex((i) => Math.max(i - 1, 0));
   }, []);
 
-  const { coverProgress } = useHandCoverGesture({
-    enabled: handsFree && Boolean(permission?.granted),
+  useHandCoverGesture({
+    // Pause la détection tant que le guide est ouvert
+    enabled: handsFree && Boolean(permission?.granted) && !showGuide,
     cameraRef,
     cameraReady,
+    onHandChange: setHandPresent,
     onTrigger: () => {
-      if (isLast) {
+      const i = stepIndexRef.current;
+      const n = totalRef.current;
+      if (n <= 0) return;
+      if (i >= n - 1) {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setShowDone(true);
+        speak("Bravo, c'est terminé.");
       } else {
         goNext();
       }
@@ -298,29 +315,23 @@ export default function ModeCuisineScreen() {
                   Activer le mode mains libres
                 </Text>
                 <Text style={styles.handsFreeCtaHint}>
-                  Passe rapidement ta main devant la caméra selfie pour zapper
-                  l’étape suivante (sans toucher l’écran)
+                  Mets ta main devant le haut du téléphone (caméra selfie) pour
+                  passer à l’étape suivante — sans toucher l’écran
                 </Text>
               </Pressable>
             ) : (
-              <View style={styles.handsFreeActive}>
-                <Text style={styles.handsFreeEmoji}>✋ →</Text>
-                <Text style={styles.handsFreeCtaLabel}>Zappe avec ta main</Text>
-                <Text style={styles.handsFreeCtaHint}>
-                  {cameraReady
-                    ? "Passe ta main devant le pastille selfie en haut — un geste court, comme un balayage"
-                    : "Préparation de la caméra…"}
+              <View style={[styles.handsFreeActive, handPresent && styles.handsFreeActiveHot]}>
+                <Text style={styles.handsFreeEmoji}>{handPresent ? "✋" : "👋"}</Text>
+                <Text style={styles.handsFreeCtaLabel}>
+                  {handPresent ? "Main détectée…" : "Mode mains libres"}
                 </Text>
-                {coverProgress > 0 ? (
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        { width: `${Math.round(coverProgress * 100)}%` },
-                      ]}
-                    />
-                  </View>
-                ) : null}
+                <Text style={styles.handsFreeCtaHint}>
+                  {!cameraReady
+                    ? "Préparation de la caméra…"
+                    : handPresent
+                      ? "Garde la main un instant — l’étape va passer"
+                      : "Approche ta main du haut du téléphone (là où est la caméra selfie)"}
+                </Text>
               </View>
             )}
           </>
@@ -339,18 +350,27 @@ export default function ModeCuisineScreen() {
         )}
       </ScrollView>
 
-      {/* Pastille selfie : cible visuelle pour le geste « zappe ». */}
+      {/* Caméra cachée : capteur uniquement (plus de pastille qui flash). */}
+      {handsFree && permission?.granted ? (
+        <View style={styles.cameraSensor} pointerEvents="none" collapsable={false}>
+          <CameraView
+            ref={cameraRef}
+            style={styles.cameraHidden}
+            facing="front"
+            onCameraReady={() => setCameraReady(true)}
+          />
+        </View>
+      ) : null}
+
+      {/* Cible visuelle fixe — pas une preview caméra. */}
       {handsFree && permission?.granted ? (
         <View style={styles.cameraDock} pointerEvents="none">
-          <View style={[styles.cameraRing, coverProgress > 0.2 && styles.cameraRingActive]}>
-            <CameraView
-              ref={cameraRef}
-              style={styles.cameraPreview}
-              facing="front"
-              onCameraReady={() => setCameraReady(true)}
-            />
+          <View style={[styles.targetOrb, handPresent && styles.targetOrbHot]}>
+            <Text style={styles.targetEmoji}>🤳</Text>
           </View>
-          <Text style={styles.cameraHint}>Passe ta main ici</Text>
+          <Text style={styles.cameraHint}>
+            {handPresent ? "Main vue !" : "Main devant ici"}
+          </Text>
         </View>
       ) : null}
 
@@ -360,11 +380,6 @@ export default function ModeCuisineScreen() {
           <Text style={styles.timerBadgeText}>{formatMmSs(timerLeft)}</Text>
         </Pressable>
       ) : null}
-
-      <View
-        pointerEvents="none"
-        style={[styles.coverOverlay, { opacity: coverProgress }]}
-      />
 
       <View style={styles.bottomBar}>
         <Pressable
@@ -404,12 +419,13 @@ export default function ModeCuisineScreen() {
             <View style={styles.guideIcon}>
               <Text style={styles.guideEmoji}>✋</Text>
             </View>
-            <Text style={styles.guideTitle}>Zappe avec ta main</Text>
+            <Text style={styles.guideTitle}>Mains libres</Text>
             <Text style={styles.guideBody}>
-              1. Une pastille selfie apparaît en haut de l’écran.{"\n"}
-              2. Passe rapidement ta main devant (geste court, comme un balayage).{"\n"}
-              3. L’étape suivante s’affiche — pas besoin de boucher l’objectif.{"\n\n"}
-              Mains humides OK. Sinon utilise « Étape suivante » en bas.
+              1. Place le téléphone face à toi, un peu en retrait.{"\n"}
+              2. Mets ta main devant le haut du téléphone (caméra selfie).{"\n"}
+              3. Dès que la main est détectée, l’étape avance toute seule.{"\n"}
+              4. Retire la main, puis recommence pour l’étape suivante.{"\n\n"}
+              Tu n’as pas besoin de toucher l’écran (mains mouillées OK).
             </Text>
             <Pressable
               onPress={() => setShowGuide(false)}
@@ -620,6 +636,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
+  handsFreeActiveHot: {
+    backgroundColor: "rgba(47,107,69,0.18)",
+    borderColor: colors.ok,
+  },
   handsFreeEmoji: { fontSize: 28 },
   handsFreeCtaLabel: {
     fontSize: type.body,
@@ -632,19 +652,16 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 18,
   },
-  progressTrack: {
-    marginTop: 8,
-    width: "100%",
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(0,0,0,0.08)",
+  cameraSensor: {
+    position: "absolute",
+    width: 120,
+    height: 120,
+    opacity: 0.01,
     overflow: "hidden",
+    left: -160,
+    top: 0,
   },
-  progressFill: {
-    height: "100%",
-    backgroundColor: colors.brand,
-    borderRadius: 3,
-  },
+  cameraHidden: { width: 120, height: 120 },
   cameraDock: {
     position: "absolute",
     top: 56,
@@ -654,17 +671,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  cameraRing: {
+  targetOrb: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    overflow: "hidden",
     borderWidth: 3,
     borderColor: colors.brand,
-    backgroundColor: "#111",
+    backgroundColor: "rgba(255,255,255,0.92)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  cameraRingActive: { borderColor: colors.ok, transform: [{ scale: 1.06 }] },
-  cameraPreview: { width: 64, height: 64 },
+  targetOrbHot: {
+    borderColor: colors.ok,
+    backgroundColor: "#E7F3EA",
+    transform: [{ scale: 1.08 }],
+  },
+  targetEmoji: { fontSize: 28 },
   cameraHint: {
     fontSize: 11,
     fontWeight: "700",
@@ -688,14 +710,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   timerBadgeText: { color: "#F7F3EA", fontWeight: "700", fontSize: type.small },
-  coverOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "#000",
-  },
   bottomBar: {
     flexDirection: "row",
     alignItems: "center",

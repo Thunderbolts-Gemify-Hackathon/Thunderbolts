@@ -1,55 +1,65 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { CameraView } from "expo-camera";
 
 /**
- * Geste « zappe » : passer rapidement la main devant la caméra avant
- * (pas besoin de boucher l'objectif jusqu'au noir).
+ * Détection de main devant la caméra selfie (Expo Go, sans ML).
  *
- * Heuristique Expo Go (sans ML / MediaPipe) :
- * on mesure la taille des micro-JPEG. Un passage de main = chute brève
- * puis retour à la normale. Un maintien prolongé est ignoré.
+ * Principe : micro-captures JPEG. Une main devant l'objectif assombrit /
+ * uniformise l'image → JPEG nettement plus petit. Dès que 2 captures
+ * consécutives sont "basses", on considère la main détectée → on avance.
+ * Ensuite il faut retirer la main avant le prochain déclenchement.
  *
- * Une vraie tracking de main (MediaPipe) demanderait un build natif —
- * trop lourd pour Expo Go ; ce geste reste utilisable mains humides.
+ * Aucun setState pendant la boucle → évite le scintillement de l'UI.
  */
 
-const SAMPLE_INTERVAL_MS = 550;
+const SAMPLE_INTERVAL_MS = 420;
 const BASELINE_SAMPLES = 4;
-const DIP_RATIO = 0.55; // main qui passe devant
-const RECOVER_RATIO = 0.78; // main repartie
-const MAX_WAVE_MS = 900; // au-delà = maintien, pas un zappe
-const COOLDOWN_MS = 1400;
+/** Seuil large : une main devant la selfie suffit (cuisine souvent lumineuse). */
+const HAND_RATIO = 0.62;
+const STRONG_HAND_RATIO = 0.4;
+const RELEASE_RATIO = 0.78;
+const COOLDOWN_MS = 800;
 
 type Options = {
   enabled: boolean;
   cameraRef: React.RefObject<CameraView | null>;
   cameraReady: boolean;
   onTrigger: () => void;
+  /** Optionnel : true pendant que la main est devant (pour un feedback UI rare). */
+  onHandChange?: (handPresent: boolean) => void;
 };
 
-export function useHandCoverGesture({ enabled, cameraRef, cameraReady, onTrigger }: Options) {
-  /** 0 = idle, 0..1 pendant le passage de main, 1 = zappe détecté (flash court). */
-  const [waveProgress, setWaveProgress] = useState(0);
+export function useHandCoverGesture({
+  enabled,
+  cameraRef,
+  cameraReady,
+  onTrigger,
+  onHandChange,
+}: Options) {
   const baselineRef = useRef<number | null>(null);
   const baselineSamplesRef = useRef<number[]>([]);
-  const dipStartedAtRef = useRef<number | null>(null);
+  const lowStreakRef = useRef(0);
+  const armedRef = useRef(true);
   const cooldownUntilRef = useRef(0);
   const runningRef = useRef(false);
   const busyRef = useRef(false);
+  const handPresentRef = useRef(false);
   const onTriggerRef = useRef(onTrigger);
+  const onHandChangeRef = useRef(onHandChange);
   onTriggerRef.current = onTrigger;
-
-  const reset = useCallback(() => {
-    baselineRef.current = null;
-    baselineSamplesRef.current = [];
-    dipStartedAtRef.current = null;
-    busyRef.current = false;
-    setWaveProgress(0);
-  }, []);
+  onHandChangeRef.current = onHandChange;
 
   useEffect(() => {
     if (!enabled || !cameraReady) {
-      reset();
+      baselineRef.current = null;
+      baselineSamplesRef.current = [];
+      lowStreakRef.current = 0;
+      armedRef.current = true;
+      busyRef.current = false;
+      if (handPresentRef.current) {
+        handPresentRef.current = false;
+        onHandChangeRef.current?.(false);
+      }
       return;
     }
 
@@ -63,7 +73,7 @@ export function useHandCoverGesture({ enabled, cameraRef, cameraReady, onTrigger
         try {
           const photo = await cameraRef.current?.takePictureAsync({
             base64: true,
-            quality: 0.05,
+            quality: 0.01,
             skipProcessing: true,
             shutterSound: false,
           });
@@ -82,7 +92,7 @@ export function useHandCoverGesture({ enabled, cameraRef, cameraReady, onTrigger
           baselineSamplesRef.current.push(len);
           if (baselineSamplesRef.current.length >= BASELINE_SAMPLES) {
             const sorted = [...baselineSamplesRef.current].sort((a, b) => a - b);
-            baselineRef.current = sorted[Math.floor(sorted.length / 2)];
+            baselineRef.current = sorted[Math.floor(sorted.length / 2)] || len;
           }
           busyRef.current = false;
           return;
@@ -91,39 +101,36 @@ export function useHandCoverGesture({ enabled, cameraRef, cameraReady, onTrigger
         const now = Date.now();
         const ratio = len / baselineRef.current;
 
-        // Recalibre doucement quand la scène est stable
-        if (ratio > 0.9 && dipStartedAtRef.current == null) {
-          baselineRef.current = baselineRef.current * 0.92 + len * 0.08;
+        if (ratio > 0.88 && armedRef.current) {
+          baselineRef.current = baselineRef.current * 0.93 + len * 0.07;
         }
 
-        if (now < cooldownUntilRef.current) {
-          busyRef.current = false;
-          return;
+        const handNow = ratio < HAND_RATIO;
+
+        if (handNow !== handPresentRef.current) {
+          handPresentRef.current = handNow;
+          onHandChangeRef.current?.(handNow);
         }
 
-        if (dipStartedAtRef.current == null) {
-          if (ratio < DIP_RATIO) {
-            dipStartedAtRef.current = now;
-            setWaveProgress(0.35);
-          }
+        if (handNow) {
+          lowStreakRef.current += 1;
         } else {
-          const elapsed = now - dipStartedAtRef.current;
-          if (ratio >= RECOVER_RATIO && elapsed >= 80 && elapsed <= MAX_WAVE_MS) {
-            // Zappe réussi : chute + retour rapide
-            dipStartedAtRef.current = null;
-            cooldownUntilRef.current = now + COOLDOWN_MS;
-            setWaveProgress(1);
-            onTriggerRef.current();
-            setTimeout(() => {
-              if (runningRef.current) setWaveProgress(0);
-            }, 280);
-          } else if (elapsed > MAX_WAVE_MS) {
-            // Main restée trop longtemps → pas un zappe, on annule
-            dipStartedAtRef.current = null;
-            setWaveProgress(0);
-          } else {
-            setWaveProgress(Math.min(0.85, 0.35 + elapsed / MAX_WAVE_MS));
+          lowStreakRef.current = 0;
+          if (ratio >= RELEASE_RATIO) {
+            armedRef.current = true;
           }
+        }
+
+        // 1 capture très sombre OU 2 captures "main devant" → avance
+        const detected =
+          lowStreakRef.current >= 2 ||
+          (lowStreakRef.current >= 1 && ratio < STRONG_HAND_RATIO);
+
+        if (armedRef.current && detected && now >= cooldownUntilRef.current) {
+          armedRef.current = false;
+          lowStreakRef.current = 0;
+          cooldownUntilRef.current = now + COOLDOWN_MS;
+          onTriggerRef.current();
         }
 
         busyRef.current = false;
@@ -133,11 +140,10 @@ export function useHandCoverGesture({ enabled, cameraRef, cameraReady, onTrigger
     return () => {
       runningRef.current = false;
       clearInterval(interval);
-      reset();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, cameraReady]);
 
-  // Alias historique : les écrans lisaient `coverProgress`
-  return { coverProgress: waveProgress, waveProgress };
+  // Plus de coverProgress animé (ça faisait scintiller tout l'écran).
+  return { coverProgress: 0 };
 }
