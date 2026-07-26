@@ -65,7 +65,7 @@ Règle produit : aucun prix, stock ou distance inventé. Ces valeurs passent tou
 - `/stock/...` : inventaire
 - `/budget/...` : contrôle du montant disponible
 - `/market/...` : points de vente et prix (seed)
-- `/planning/...` : planning de repas et validation
+- `/planning/...` : planning de repas, validation, liste de courses par période
 - `/ia/...` : génération planning, chat Gemma, directive courses, suggestion remède
 - `/health` : état du service
 
