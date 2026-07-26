@@ -16,6 +16,7 @@ export function buildMarketMapHtml(opts: {
   homeLabel: string;
   matches: MarketMatch[];
   recommendedId: string | null;
+  rayonKm: number;
 }): string {
   const points: MapPoint[] = opts.matches.map((m) => ({
     id: m.point_de_vente.id,
@@ -35,6 +36,8 @@ export function buildMarketMapHtml(opts: {
     },
     points,
     focusedId: opts.recommendedId ?? points[0]?.id ?? null,
+    rayonM: Math.max(1, opts.rayonKm) * 1000,
+    rayonKm: opts.rayonKm,
   });
 
   return `<!DOCTYPE html>
@@ -67,6 +70,25 @@ export function buildMarketMapHtml(opts: {
       return '#5E6A62';
     }
 
+    const zoneCircle = L.circle([data.home.lat, data.home.lon], {
+      radius: data.rayonM,
+      color: '#1F3D2B',
+      weight: 1.5,
+      opacity: 0.45,
+      fillColor: '#1F3D2B',
+      fillOpacity: 0.06,
+      dashArray: '6 8'
+    }).addTo(map);
+
+    const zoneLabel = L.marker([data.home.lat, data.home.lon], {
+      icon: L.divIcon({
+        className: 'zone-label',
+        html: '<div style="background:#FFFCF7;border:1px solid #D8D2C4;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;color:#5E6A62;white-space:nowrap;transform:translate(-50%,-34px);box-shadow:0 2px 6px rgba(0,0,0,0.12);">Zone de recherche : ' + data.rayonKm + ' km</div>',
+        iconSize: [0, 0]
+      }),
+      interactive: false
+    }).addTo(map);
+
     const homeMarker = L.circleMarker([data.home.lat, data.home.lon], {
       radius: 11,
       color: '#fff',
@@ -76,6 +98,7 @@ export function buildMarketMapHtml(opts: {
     }).addTo(map).bindPopup(${JSON.stringify(opts.homeLabel)});
 
     let route = null;
+    let routeRequestId = 0;
     let focusedId = data.focusedId;
     let hidden = {};
     const markersById = {};
@@ -86,15 +109,57 @@ export function buildMarketMapHtml(opts: {
       }
     }
 
-    function drawRoute(point) {
-      if (route) { map.removeLayer(route); route = null; }
-      if (!point) return;
+    // Ligne droite affichée immédiatement (repère visuel + secours hors-ligne),
+    // remplacée par le vrai trajet routier dès que le service de routage répond.
+    function drawStraightFallback(point) {
+      if (route) { map.removeLayer(route); }
       route = L.polyline([[data.home.lat, data.home.lon], [point.lat, point.lon]], {
         color: colorFor(point.securite),
-        weight: 4,
-        opacity: 0.8,
-        dashArray: '8 8'
+        weight: 3,
+        opacity: 0.5,
+        dashArray: '2 10'
       }).addTo(map);
+    }
+
+    function drawRoadRoute(point, lonLatCoords) {
+      if (route) { map.removeLayer(route); }
+      const latlngs = lonLatCoords.map(function (c) { return [c[1], c[0]]; });
+      route = L.polyline(latlngs, {
+        color: colorFor(point.securite),
+        weight: 5,
+        opacity: 0.85
+      }).addTo(map);
+    }
+
+    // OSRM (démo publique, sans clé) : calcule un vrai trajet suivant les routes
+    // au lieu d'une ligne droite. Si indisponible (hors-ligne, quota), on garde le
+    // trait pointillé déjà affiché — l'app reste utilisable sans connexion au service.
+    function fetchRoadRoute(point) {
+      const myRequest = ++routeRequestId;
+      const url = 'https://router.project-osrm.org/route/v1/driving/'
+        + data.home.lon + ',' + data.home.lat + ';' + point.lon + ',' + point.lat
+        + '?overview=full&geometries=geojson';
+      fetch(url)
+        .then(function (res) { return res.json(); })
+        .then(function (json) {
+          if (myRequest !== routeRequestId) return;
+          const r = json && json.routes && json.routes[0];
+          const coords = r && r.geometry && r.geometry.coordinates;
+          if (coords && coords.length > 1) {
+            drawRoadRoute(point, coords);
+            post({ type: 'route', id: point.id, distanceM: r.distance, durationS: r.duration });
+          }
+        })
+        .catch(function () { /* on garde la ligne droite en secours */ });
+    }
+
+    function drawRoute(point) {
+      if (!point) {
+        if (route) { map.removeLayer(route); route = null; }
+        return;
+      }
+      drawStraightFallback(point);
+      fetchRoadRoute(point);
     }
 
     function restyleMarkers() {
@@ -120,9 +185,7 @@ export function buildMarketMapHtml(opts: {
     };
 
     window.recenterHome = function () {
-      const bounds = [[data.home.lat, data.home.lon]];
-      data.points.forEach(function (p) { if (!hidden[p.securite]) bounds.push([p.lat, p.lon]); });
-      map.fitBounds(bounds, { padding: [40, 60] });
+      map.fitBounds(zoneCircle.getBounds(), { padding: [30, 30] });
     };
 
     window.setHiddenSecurities = function (list) {
@@ -163,7 +226,8 @@ export function buildMarketMapHtml(opts: {
     if (data.focusedId) {
       window.focusPoint(data.focusedId);
     }
-    if (bounds.length > 1) map.fitBounds(bounds, { padding: [40, 60] });
+    const initialBounds = L.latLngBounds(bounds).extend(zoneCircle.getBounds());
+    map.fitBounds(initialBounds, { padding: [30, 40] });
   </script>
 </body>
 </html>`;

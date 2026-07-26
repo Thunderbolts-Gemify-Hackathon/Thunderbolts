@@ -26,3 +26,14 @@ export function formatTrajet(distanceKm: number, mode: string): string {
   const label = MODE_LABEL[mode] ?? mode;
   return `${distanceKm} km ${label} · ≈ ${minutes} min (estimation)`;
 }
+
+/** Distance réelle (mètres) renvoyée par le service de routage — pas une estimation. */
+export function formatDistanceM(distanceM: number): string {
+  return distanceM >= 1000 ? `${(distanceM / 1000).toFixed(1)} km` : `${Math.round(distanceM)} m`;
+}
+
+/** Durée réelle (secondes) renvoyée par le service de routage — pas une estimation. */
+export function formatDureeS(durationS: number): string {
+  const minutes = Math.max(1, Math.round(durationS / 60));
+  return `${minutes} min`;
+}

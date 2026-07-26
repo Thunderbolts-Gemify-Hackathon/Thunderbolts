@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { ScrollView, StyleSheet, View, ViewStyle } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, View, ViewStyle } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { NAV_CLEARANCE } from "@/ui/BottomNavBar";
@@ -11,9 +11,12 @@ type Props = {
   style?: ViewStyle;
   /** Écrans sans barre de navigation flottante (auth, onboarding) : pas d'espace réservé. */
   noNavClearance?: boolean;
+  /** Tirer pour rafraîchir (optionnel) — évite un bouton "Actualiser" dédié. */
+  refreshing?: boolean;
+  onRefresh?: () => void;
 };
 
-export function Screen({ children, footer, style, noNavClearance }: Props) {
+export function Screen({ children, footer, style, noNavClearance, refreshing, onRefresh }: Props) {
   const clearance = noNavClearance ? 0 : NAV_CLEARANCE;
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
@@ -25,6 +28,11 @@ export function Screen({ children, footer, style, noNavClearance }: Props) {
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          onRefresh ? (
+            <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={colors.brand} />
+          ) : undefined
+        }
       >
         {children}
       </ScrollView>

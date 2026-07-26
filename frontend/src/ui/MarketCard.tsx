@@ -24,13 +24,14 @@ type Props = {
   match: MarketMatch;
   recommended: boolean;
   width: number;
+  onVoirTrajet: () => void;
 };
 
-export function MarketCard({ match, recommended, width }: Props) {
+export function MarketCard({ match, recommended, width, onVoirTrajet }: Props) {
   const { point_de_vente: pdv, itineraire, prix, deprioritise } = match;
   const securite = itineraire?.niveau_securite ?? "inconnu";
 
-  const onItineraire = () => {
+  const onOuvrirMaps = () => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${pdv.latitude},${pdv.longitude}`;
     void Linking.openURL(url);
   };
@@ -80,9 +81,12 @@ export function MarketCard({ match, recommended, width }: Props) {
       ) : null}
 
       <View style={styles.actions}>
-        <Pressable onPress={onItineraire} style={styles.primaryBtn}>
-          <Feather name="navigation" size={16} color="#F7F3EA" />
-          <Text style={styles.primaryLabel}>Itinéraire</Text>
+        <Pressable onPress={onVoirTrajet} style={styles.primaryBtn}>
+          <Feather name="map" size={16} color="#F7F3EA" />
+          <Text style={styles.primaryLabel}>Voir le trajet</Text>
+        </Pressable>
+        <Pressable onPress={onOuvrirMaps} style={styles.secondaryBtn} hitSlop={8}>
+          <Feather name="navigation" size={16} color={colors.brand} />
         </Pressable>
         <Pressable onPress={onEcouter} style={styles.secondaryBtn} hitSlop={8}>
           <Feather name="volume-2" size={16} color={colors.brand} />

@@ -23,6 +23,7 @@ import {
 import { QUARTIER_COORDS } from "@/api/onboarding";
 import { listIngredients, type Ingredient } from "@/api/stock";
 import { buildMarketMapHtml } from "@/lib/mapHtml";
+import { formatDistanceM, formatDureeS } from "@/lib/travelEstimate";
 import { useOnboarding } from "@/onboarding/store";
 import { useSession } from "@/session/SessionContext";
 import { MarketCard } from "@/ui/MarketCard";
@@ -42,6 +43,8 @@ const SECURITE_FILTERS: { value: string; label: string; color: keyof typeof colo
   { value: "a_eviter", label: "À éviter", color: "danger" },
 ];
 
+const RAYON_OPTIONS = [5, 15, 30];
+
 const GUTTER = space.lg;
 
 export default function MapScreen() {
@@ -55,12 +58,12 @@ export default function MapScreen() {
   const carouselRef = useRef<FlatList<MarketMatch>>(null);
 
   const quartier = data.localisation.quartier;
-  const coords =
-    session?.localisationLat != null && session?.localisationLon != null
-      ? { lat: session.localisationLat, lon: session.localisationLon }
-      : quartier
-        ? QUARTIER_COORDS[quartier]
-        : null;
+  const lat = session?.localisationLat;
+  const lon = session?.localisationLon;
+  const coords = useMemo(() => {
+    if (lat != null && lon != null) return { lat, lon };
+    return quartier ? QUARTIER_COORDS[quartier] : null;
+  }, [lat, lon, quartier]);
   const prefId = typeof params.ingredientId === "string" ? params.ingredientId : null;
 
   const [catalog, setCatalog] = useState<Ingredient[]>([]);
@@ -69,11 +72,15 @@ export default function MapScreen() {
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("securite");
   const [hiddenSecurities, setHiddenSecurities] = useState<string[]>([]);
+  const [rayonKm, setRayonKm] = useState(15);
   const [matches, setMatches] = useState<MarketMatch[]>([]);
   const [selectedPdvId, setSelectedPdvId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [routeInfo, setRouteInfo] = useState<{ id: string; distanceM: number; durationS: number } | null>(
+    null
+  );
 
   const selectedIngredient = catalog.find((i) => i.id === selectedId) ?? null;
   const recommended = useMemo(() => pickSafest(matches), [matches]);
@@ -98,18 +105,18 @@ export default function MapScreen() {
     setSearching(true);
     setError(null);
     try {
-      const rows = await findNearbyMarket(selectedId, coords.lat, coords.lon);
+      const rows = await findNearbyMarket(selectedId, coords.lat, coords.lon, rayonKm);
       setMatches(rows);
       const best = pickSafest(rows);
       setSelectedPdvId(best?.point_de_vente.id ?? null);
-      if (rows.length === 0) setError("Aucun point de vente dans le rayon.");
+      if (rows.length === 0) setError(`Aucun point de vente dans un rayon de ${rayonKm} km.`);
     } catch (e) {
       setMatches([]);
       setError(e instanceof ApiError ? e.detail : "Carte indisponible");
     } finally {
       setSearching(false);
     }
-  }, [selectedId, coords]);
+  }, [selectedId, coords, rayonKm]);
 
   useEffect(() => {
     if (!token) {
@@ -145,8 +152,9 @@ export default function MapScreen() {
       homeLabel: quartier ? `Chez toi (${quartier})` : "Chez toi",
       matches,
       recommendedId: recommended?.point_de_vente.id ?? null,
+      rayonKm,
     });
-  }, [coords, quartier, matches, recommended]);
+  }, [coords, quartier, matches, recommended, rayonKm]);
 
   const suggestions = useMemo(() => {
     if (!query.trim()) return [];
@@ -156,6 +164,7 @@ export default function MapScreen() {
 
   const focusPoint = (id: string) => {
     setSelectedPdvId(id);
+    setRouteInfo(null);
     webviewRef.current?.injectJavaScript(`window.focusPoint(${JSON.stringify(id)}); true;`);
   };
 
@@ -188,11 +197,24 @@ export default function MapScreen() {
             style={styles.map}
             onMessage={(ev) => {
               try {
-                const msg = JSON.parse(ev.nativeEvent.data) as { type?: string; id?: string };
+                const msg = JSON.parse(ev.nativeEvent.data) as {
+                  type?: string;
+                  id?: string;
+                  distanceM?: number;
+                  durationS?: number;
+                };
                 if (msg.type === "select" && msg.id) {
                   setSelectedPdvId(msg.id);
+                  setRouteInfo(null);
                   const idx = sortedMatches.findIndex((m) => m.point_de_vente.id === msg.id);
                   if (idx >= 0) carouselRef.current?.scrollToIndex({ index: idx, animated: true });
+                } else if (
+                  msg.type === "route" &&
+                  msg.id &&
+                  msg.distanceM != null &&
+                  msg.durationS != null
+                ) {
+                  setRouteInfo({ id: msg.id, distanceM: msg.distanceM, durationS: msg.durationS });
                 }
               } catch {
                 /* ignore */
@@ -266,7 +288,37 @@ export default function MapScreen() {
               );
             })}
           </View>
+
+          <View style={styles.sortRow}>
+            <View style={styles.rayonLabel}>
+              <Feather name="circle" size={12} color={colors.muted} />
+              <Text style={styles.rayonLabelText}>Zone :</Text>
+            </View>
+            {RAYON_OPTIONS.map((km) => {
+              const active = km === rayonKm;
+              return (
+                <Pressable
+                  key={km}
+                  onPress={() => setRayonKm(km)}
+                  style={[styles.sortChip, active && styles.sortChipActive]}
+                >
+                  <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
+                    {km} km
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
+
+        {routeInfo && routeInfo.id === selectedPdvId ? (
+          <View style={styles.routeBadge}>
+            <Feather name="map-pin" size={13} color={colors.brand} />
+            <Text style={styles.routeBadgeText}>
+              Trajet réel : {formatDistanceM(routeInfo.distanceM)} · {formatDureeS(routeInfo.durationS)}
+            </Text>
+          </View>
+        ) : null}
 
         <Pressable onPress={recenter} style={styles.recenterBtn} hitSlop={8}>
           <Feather name="crosshair" size={20} color={colors.brand} />
@@ -316,6 +368,7 @@ export default function MapScreen() {
                 match={item}
                 recommended={item.point_de_vente.id === recommended?.point_de_vente.id}
                 width={cardWidth}
+                onVoirTrajet={() => focusPoint(item.point_de_vente.id)}
               />
             )}
           />
@@ -393,7 +446,9 @@ const styles = StyleSheet.create({
   },
   suggestionRow: { paddingHorizontal: space.md, paddingVertical: space.sm },
   suggestionText: { color: colors.ink, fontSize: type.body },
-  sortRow: { flexDirection: "row", gap: 8 },
+  sortRow: { flexDirection: "row", gap: 8, alignItems: "center" },
+  rayonLabel: { flexDirection: "row", alignItems: "center", gap: 4, marginRight: 2 },
+  rayonLabelText: { fontSize: type.small, color: colors.muted, fontWeight: "600" },
   sortChip: {
     backgroundColor: colors.surface,
     borderRadius: 999,
@@ -408,6 +463,25 @@ const styles = StyleSheet.create({
   sortChipActive: { backgroundColor: colors.brand },
   sortChipText: { fontSize: type.small, color: colors.ink, fontWeight: "600" },
   sortChipTextActive: { color: "#F7F3EA" },
+  routeBadge: {
+    position: "absolute",
+    left: space.md,
+    bottom: space.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: colors.surface,
+    borderRadius: 999,
+    paddingHorizontal: space.md,
+    paddingVertical: 8,
+    maxWidth: "62%",
+    shadowColor: "#000",
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+  routeBadgeText: { fontSize: type.small, color: colors.ink, fontWeight: "600", flexShrink: 1 },
   recenterBtn: {
     position: "absolute",
     right: space.md,

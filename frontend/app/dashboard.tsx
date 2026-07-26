@@ -1,6 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import {
   findNearbyMarket,
@@ -18,7 +19,8 @@ import { QUARTIER_COORDS } from "@/api/onboarding";
 import { todayIso, weekStartIso } from "@/lib/dates";
 import { useOnboarding } from "@/onboarding/store";
 import { useSession } from "@/session/SessionContext";
-import { Button } from "@/ui/Button";
+import { ActionCard } from "@/ui/ActionCard";
+import { QuickTile } from "@/ui/QuickTile";
 import { Screen } from "@/ui/Screen";
 import { Body, Brand, Title } from "@/ui/Typography";
 import { colors, radius, space, type } from "@/theme";
@@ -106,6 +108,25 @@ export default function DashboardScreen() {
     void load();
   }, [load]);
 
+  const confirmReset = () => {
+    Alert.alert(
+      "Refaire l'onboarding ?",
+      "Tes réponses actuelles seront réinitialisées.",
+      [
+        { text: "Annuler", style: "cancel" },
+        {
+          text: "Continuer",
+          style: "destructive",
+          onPress: async () => {
+            reset();
+            await clearSession();
+            router.replace("/");
+          },
+        },
+      ]
+    );
+  };
+
   const today = todayIso();
   const repasToday =
     state.planning?.repas.find((r) => r.jour === today && r.statut !== "annule") ??
@@ -115,118 +136,183 @@ export default function DashboardScreen() {
   const stockEmpty = state.stock.filter((l) => l.quantite_disponible <= 0).length;
 
   return (
-    <Screen
-      footer={
-        <View style={styles.actions}>
-          <Button
-            label="Je veux manger quelque chose"
-            onPress={() => router.push("/repas" as Href)}
-          />
-          <Button label="Planning" onPress={() => router.push("/planning" as Href)} />
-          <Button label="Assistant" variant="ghost" onPress={() => router.push("/chat" as Href)} />
-          <Button label="Liste de courses" variant="ghost" onPress={() => router.push("/courses" as Href)} />
-          <Button label="Marches" variant="ghost" onPress={() => router.push("/market" as Href)} />
-          <Button label="Carte marches" variant="ghost" onPress={() => router.push("/map" as Href)} />
-          <Button label="Gerer mon stock" variant="ghost" onPress={() => router.push("/stock" as Href)} />
-          <Button label="Actualiser" variant="ghost" onPress={() => void load()} disabled={loading} />
-          <Button
-            label="Refaire l'onboarding"
-            variant="ghost"
-            onPress={async () => {
-              reset();
-              await clearSession();
-              router.replace("/");
-            }}
-          />
+    <Screen refreshing={loading} onRefresh={() => void load()}>
+      <View style={styles.header}>
+        <View style={{ flex: 1 }}>
+          <Brand>Kaly Tao</Brand>
+          <Title style={styles.greeting}>Salut {name}.</Title>
         </View>
-      }
-    >
-      <Brand>Kaly Tao</Brand>
-      <Title>Salut {name}.</Title>
-      <Body>
-        {done
-          ? "Donnees chargees depuis l'API."
-          : "Complete l'onboarding pour personnaliser ton accueil."}
-      </Body>
+        <Pressable
+          onPress={confirmReset}
+          accessibilityLabel="Refaire l'onboarding"
+          style={({ pressed }) => [styles.headerIcon, pressed && { opacity: 0.6 }]}
+        >
+          <Ionicons name="settings-outline" size={20} color={colors.brand} />
+        </Pressable>
+      </View>
 
-      {loading ? (
-        <ActivityIndicator color={colors.brand} style={{ marginVertical: space.lg }} />
-      ) : null}
+      <Body style={styles.intro}>
+        {done
+          ? "Voici un aperçu de ta journée."
+          : "Complète l'onboarding pour personnaliser ton accueil."}
+      </Body>
 
       {state.error ? <Text style={styles.error}>{state.error}</Text> : null}
 
-      <Card
-        label="Aujourd'hui"
-        value={
-          repasToday
+      <View style={styles.heroCard}>
+        <Text style={styles.heroLabel}>AUJOURD&apos;HUI</Text>
+        <Text style={styles.heroValue}>
+          {repasToday
             ? `${repasToday.recette.nom} · ${repasToday.type_repas}`
-            : "Aucun repas planifie"
-        }
-        hint={data.localisation.quartier || "Quartier non renseigne"}
-      />
-
-      <View style={styles.row}>
-        <Card compact label="En stock" value={String(stockOk)} hint="ingredients > 0" />
-        <Card
-          compact
-          label="Rupture"
-          value={String(stockEmpty)}
-          hint="quantite a 0"
-          tone="accent"
-        />
+            : "Aucun repas planifié"}
+        </Text>
+        <Text style={styles.heroHint}>{data.localisation.quartier || "Quartier non renseigné"}</Text>
       </View>
 
-      <Card
-        label="Budget restant"
-        value={
-          state.budget
-            ? formatAr(state.budget.montant_restant, state.budget.devise)
-            : "n/a"
-        }
-        hint={state.budget ? `periode : ${state.budget.periode}` : "budget non trouve"}
-      />
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.carousel}
+        style={styles.carouselWrap}
+      >
+        <ActionCard
+          icon="restaurant-outline"
+          title="Je veux manger"
+          subtitle="Trouve une idée de repas"
+          tint={colors.brand}
+          onPress={() => router.push("/repas" as Href)}
+        />
+        <ActionCard
+          icon="calendar-outline"
+          title="Planning"
+          subtitle="Jour, semaine ou mois"
+          tint={colors.accent}
+          onPress={() => router.push("/planning" as Href)}
+        />
+        <ActionCard
+          icon="chatbubble-ellipses-outline"
+          title="Assistant"
+          subtitle="Pose ta question"
+          tint={colors.ok}
+          onPress={() => router.push("/chat" as Href)}
+        />
+      </ScrollView>
 
-      <Card
-        label="Marche suggere"
-        value={state.market ? state.market.point_de_vente.nom : "Pas de suggestion"}
-        hint={
-          state.market
-            ? `${formatAr(state.market.prix)} · ${state.market.itineraire?.niveau_securite ?? "n/a"}`
-            : "Ajoute du stock pour proposer un marche"
-        }
-      />
+      <Text style={styles.sectionTitle}>Vue d&apos;ensemble</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.statsRow}
+      >
+        <StatCard label="En stock" value={String(stockOk)} hint="ingrédients > 0" />
+        <StatCard label="Rupture" value={String(stockEmpty)} hint="quantité à 0" tone="accent" />
+        <StatCard
+          label="Budget restant"
+          value={state.budget ? formatAr(state.budget.montant_restant, state.budget.devise) : "n/a"}
+          hint={state.budget ? `période : ${state.budget.periode}` : "budget non trouvé"}
+        />
+        <StatCard
+          label="Marché suggéré"
+          value={state.market ? state.market.point_de_vente.nom : "Aucune suggestion"}
+          hint={
+            state.market
+              ? `${formatAr(state.market.prix)} · ${state.market.itineraire?.niveau_securite ?? "n/a"}`
+              : "Ajoute du stock pour proposer un marché"
+          }
+        />
+      </ScrollView>
+
+      <Text style={styles.sectionTitle}>Accès rapide</Text>
+      <View style={styles.grid}>
+        <QuickTile
+          icon="cart-outline"
+          label="Liste de courses"
+          onPress={() => router.push("/courses" as Href)}
+        />
+        <QuickTile
+          icon="storefront-outline"
+          label="Marchés"
+          onPress={() => router.push("/market" as Href)}
+        />
+        <QuickTile
+          icon="map-outline"
+          label="Carte marchés"
+          onPress={() => router.push("/map" as Href)}
+        />
+        <QuickTile
+          icon="cube-outline"
+          label="Gérer mon stock"
+          onPress={() => router.push("/stock" as Href)}
+        />
+      </View>
     </Screen>
   );
 }
 
-function Card({
+function StatCard({
   label,
   value,
   hint,
-  compact,
   tone,
 }: {
   label: string;
   value: string;
   hint: string;
-  compact?: boolean;
   tone?: "accent";
 }) {
   return (
-    <View style={[styles.card, compact && styles.cardCompact]}>
-      <Text style={styles.cardLabel}>{label}</Text>
-      <Text style={[styles.cardValue, tone === "accent" && { color: colors.accent }]}>
+    <View style={styles.statCard}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statValue, tone === "accent" && { color: colors.accent }]} numberOfLines={1}>
         {value}
       </Text>
-      <Text style={styles.cardHint}>{hint}</Text>
+      <Text style={styles.statHint} numberOfLines={1}>
+        {hint}
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: "row", gap: space.sm },
-  card: {
-    flex: 1,
+  header: { flexDirection: "row", alignItems: "flex-start", gap: space.sm },
+  greeting: { marginTop: 2 },
+  headerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.brandSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  intro: { marginTop: space.xs, marginBottom: space.md },
+  heroCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: space.md,
+    gap: 4,
+  },
+  heroLabel: {
+    fontSize: type.small,
+    color: colors.muted,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  heroValue: { fontSize: 20, fontWeight: "700", color: colors.ink, marginTop: 4 },
+  heroHint: { fontSize: type.small, color: colors.muted },
+  carouselWrap: { marginHorizontal: -space.lg },
+  carousel: { gap: space.sm, paddingHorizontal: space.lg },
+  sectionTitle: {
+    fontSize: type.body,
+    fontWeight: "700",
+    color: colors.ink,
+    marginBottom: -space.xs,
+  },
+  statsRow: { gap: space.sm, paddingRight: space.md },
+  statCard: {
+    width: 150,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -234,27 +320,22 @@ const styles = StyleSheet.create({
     padding: space.md,
     gap: 4,
   },
-  cardCompact: { minHeight: 110 },
-  cardLabel: {
+  statLabel: {
     fontSize: type.small,
     color: colors.muted,
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
-  cardValue: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: colors.ink,
-    marginTop: 4,
-  },
-  cardHint: { fontSize: type.small, color: colors.muted },
-  actions: { gap: space.sm },
+  statValue: { fontSize: 20, fontWeight: "700", color: colors.ink, marginTop: 4 },
+  statHint: { fontSize: type.small, color: colors.muted },
+  grid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   error: {
     color: colors.danger,
     backgroundColor: "#F8E8E4",
     padding: space.md,
     borderRadius: 12,
     fontSize: type.body,
+    marginBottom: space.md,
   },
 });
