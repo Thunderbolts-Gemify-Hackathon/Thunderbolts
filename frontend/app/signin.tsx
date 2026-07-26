@@ -3,8 +3,12 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { ApiError } from "@/api/http";
+import { getMonProfilComplet } from "@/api/onboarding";
 import { loginUtilisateur } from "@/api/utilisateur";
 import { isValidEmail } from "@/lib/validators";
+import { hydrationFromComplet } from "@/onboarding/hydrate";
+import { useOnboarding } from "@/onboarding/store";
+import { STEP_IDS } from "@/onboarding/steps";
 import { useSession } from "@/session/SessionContext";
 import { AuthField } from "@/ui/AuthField";
 import { AuthPasswordField } from "@/ui/AuthPasswordField";
@@ -16,7 +20,8 @@ type FieldKey = "email" | "motDePasse";
 
 export default function SignInScreen() {
   const router = useRouter();
-  const { setSession } = useSession();
+  const { setSession, patchSession } = useSession();
+  const { hydrate } = useOnboarding();
 
   const [email, setEmail] = useState("");
   const [motDePasse, setMotDePasse] = useState("");
@@ -57,7 +62,29 @@ export default function SignInScreen() {
         prenom: user.prenom,
         email: user.email,
       });
-      router.replace("/dashboard");
+
+      // Retrouve le profil existant (et ses ids) pour ne pas atterrir sur un
+      // dashboard "session incomplète" : sans ça, se reconnecter équivalait
+      // à perdre tout son onboarding.
+      try {
+        const complet = await getMonProfilComplet(user.api_token);
+        const { data, sessionPatch, done, resumeStep } = hydrationFromComplet(complet);
+        await patchSession(sessionPatch);
+        hydrate(data, done, resumeStep);
+        if (done) {
+          router.replace("/dashboard");
+        } else {
+          router.replace(`/onboarding/${resumeStep ?? STEP_IDS[0]}`);
+        }
+      } catch (completError) {
+        if (completError instanceof ApiError && completError.status === 404) {
+          router.replace(`/onboarding/${STEP_IDS[0]}`);
+        } else {
+          // Backend momentanément inatteignable : on laisse quand même
+          // entrer, le dashboard réessaiera ses propres appels.
+          router.replace("/dashboard");
+        }
+      }
     } catch (e) {
       setError(e instanceof ApiError ? e.detail : "Erreur inconnue");
     } finally {

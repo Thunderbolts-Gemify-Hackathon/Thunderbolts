@@ -2,7 +2,11 @@ import { Feather } from "@expo/vector-icons";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { formatAr, type MarketMatch } from "@/api/market";
-import { formatDistanceM, formatDureeS, formatTrajet } from "@/lib/travelEstimate";
+import {
+  formatDistanceM,
+  formatDureeS,
+  formatTrajet,
+} from "@/lib/travelEstimate";
 import { speak } from "@/lib/speech";
 import { colors, radius, space, type } from "@/theme";
 
@@ -33,7 +37,13 @@ type Props = {
   real?: RouteReelle | null;
 };
 
-export function MarketCard({ match, recommended, width, onVoirTrajet, real }: Props) {
+export function MarketCard({
+  match,
+  recommended,
+  width,
+  onVoirTrajet,
+  real,
+}: Props) {
   const { point_de_vente: pdv, itineraire, prix, deprioritise } = match;
   const securite = itineraire?.niveau_securite ?? "inconnu";
 
@@ -86,14 +96,20 @@ export function MarketCard({ match, recommended, width, onVoirTrajet, real }: Pr
 
       {trajetLabel ? (
         <View style={styles.trajetRow}>
-          <View style={[styles.dot, { backgroundColor: SECURITE_COLOR[securite] }]} />
+          <View
+            style={[styles.dot, { backgroundColor: SECURITE_COLOR[securite] }]}
+          />
           <Text style={styles.trajet}>{trajetLabel}</Text>
-          {real ? <Feather name="check-circle" size={12} color={colors.ok} /> : null}
+          {real ? (
+            <Feather name="check-circle" size={12} color={colors.ok} />
+          ) : null}
         </View>
       ) : null}
 
       {deprioritise ? (
-        <Text style={styles.warn}>Déconseillé — trajet à éviter selon nos règles de sécurité.</Text>
+        <Text style={styles.warn}>
+          Déconseillé — trajet à éviter selon nos règles de sécurité.
+        </Text>
       ) : null}
 
       <View style={styles.actions}>
@@ -101,7 +117,11 @@ export function MarketCard({ match, recommended, width, onVoirTrajet, real }: Pr
           <Feather name="map" size={16} color="#F7F3EA" />
           <Text style={styles.primaryLabel}>Voir le trajet</Text>
         </Pressable>
-        <Pressable onPress={onOuvrirMaps} style={styles.secondaryBtn} hitSlop={8}>
+        <Pressable
+          onPress={onOuvrirMaps}
+          style={styles.secondaryBtn}
+          hitSlop={8}
+        >
           <Feather name="navigation" size={16} color={colors.brand} />
         </Pressable>
         <Pressable onPress={onEcouter} style={styles.secondaryBtn} hitSlop={8}>
@@ -124,10 +144,18 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 8,
   },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
   headerText: { flex: 1, gap: 2 },
   nom: { fontSize: type.body, fontWeight: "700", color: colors.ink },
-  type: { fontSize: type.small, color: colors.muted, textTransform: "capitalize" },
+  type: {
+    fontSize: type.small,
+    color: colors.muted,
+    textTransform: "capitalize",
+  },
   badge: {
     flexDirection: "row",
     alignItems: "center",

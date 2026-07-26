@@ -9,11 +9,7 @@ import {
 } from "react-native";
 
 import { ApiError } from "@/api/http";
-import {
-  findNearbyMarket,
-  formatAr,
-  type MarketMatch,
-} from "@/api/market";
+import { findNearbyMarket, formatAr, type MarketMatch } from "@/api/market";
 import { QUARTIER_COORDS } from "@/api/onboarding";
 import { listIngredients, type Ingredient } from "@/api/stock";
 import { useOnboarding } from "@/onboarding/store";
@@ -32,7 +28,8 @@ export default function MarketScreen() {
 
   const quartier = data.localisation.quartier;
   const coords = quartier ? QUARTIER_COORDS[quartier] : null;
-  const prefId = typeof params.ingredientId === "string" ? params.ingredientId : null;
+  const prefId =
+    typeof params.ingredientId === "string" ? params.ingredientId : null;
 
   const [catalog, setCatalog] = useState<Ingredient[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(prefId);
@@ -44,7 +41,7 @@ export default function MarketScreen() {
 
   const selected = useMemo(
     () => catalog.find((i) => i.id === selectedId) ?? null,
-    [catalog, selectedId]
+    [catalog, selectedId],
   );
 
   const search = useCallback(async () => {
@@ -52,7 +49,7 @@ export default function MarketScreen() {
       setError(
         coords
           ? "Choisis un ingredient."
-          : "Quartier manquant. Termine l'onboarding localisation."
+          : "Quartier manquant. Termine l'onboarding localisation.",
       );
       return;
     }
@@ -117,7 +114,7 @@ export default function MarketScreen() {
               router.push(
                 (selectedId
                   ? `/map?ingredientId=${encodeURIComponent(selectedId)}`
-                  : "/map") as Href
+                  : "/map") as Href,
               )
             }
           />
@@ -126,7 +123,11 @@ export default function MarketScreen() {
             variant="ghost"
             onPress={() => router.push("/courses?periode=jour" as Href)}
           />
-          <Button label="Retour" variant="ghost" onPress={() => router.back()} />
+          <Button
+            label="Retour"
+            variant="ghost"
+            onPress={() => router.back()}
+          />
         </View>
       }
     >
@@ -158,9 +159,7 @@ export default function MarketScreen() {
         })}
       </View>
 
-      {selected ? (
-        <Body>Recherche pour : {selected.nom}</Body>
-      ) : null}
+      {selected ? <Body>Recherche pour : {selected.nom}</Body> : null}
 
       {matches.map((m, idx) => (
         <View

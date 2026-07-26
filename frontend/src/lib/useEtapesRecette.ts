@@ -22,10 +22,11 @@ export function useEtapesRecette(
   const [error, setError] = useState<string | null>(null);
 
   const fetchEtapes = useCallback(async () => {
-    if (!recetteId || !profilId || !token || loading) return;
+    if (!recetteId || !profilId || !token) return;
     const cached = getCachedEtapes(recetteId);
     if (cached) {
       setEtapes(cached);
+      setError(null);
       return;
     }
     setLoading(true);
@@ -39,13 +40,12 @@ export function useEtapesRecette(
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recetteId, profilId, token]);
 
   useEffect(() => {
-    if (autoFetch) void fetchEtapes();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoFetch]);
+    if (!autoFetch) return;
+    void fetchEtapes();
+  }, [autoFetch, fetchEtapes]);
 
   return { etapes, loading, error, fetchEtapes };
 }

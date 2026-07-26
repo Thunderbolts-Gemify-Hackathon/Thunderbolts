@@ -1,7 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { type Href, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import {
   findNearbyMarket,
@@ -85,7 +92,7 @@ export default function DashboardScreen() {
         const matches = await findNearbyMarket(
           ingredientId,
           coords.lat,
-          coords.lon
+          coords.lon,
         ).catch(() => []);
         market = matches[0] ?? null;
       }
@@ -123,17 +130,20 @@ export default function DashboardScreen() {
             router.replace("/");
           },
         },
-      ]
+      ],
     );
   };
 
   const today = todayIso();
   const repasToday =
-    state.planning?.repas.find((r) => r.jour === today && r.statut !== "annule") ??
-    state.planning?.repas.find((r) => r.statut === "planifie");
+    state.planning?.repas.find(
+      (r) => r.jour === today && r.statut !== "annule",
+    ) ?? state.planning?.repas.find((r) => r.statut === "planifie");
 
   const stockOk = state.stock.filter((l) => l.quantite_disponible > 0).length;
-  const stockEmpty = state.stock.filter((l) => l.quantite_disponible <= 0).length;
+  const stockEmpty = state.stock.filter(
+    (l) => l.quantite_disponible <= 0,
+  ).length;
 
   return (
     <Screen refreshing={loading} onRefresh={() => void load()}>
@@ -145,7 +155,10 @@ export default function DashboardScreen() {
         <Pressable
           onPress={confirmReset}
           accessibilityLabel="Refaire l'onboarding"
-          style={({ pressed }) => [styles.headerIcon, pressed && { opacity: 0.6 }]}
+          style={({ pressed }) => [
+            styles.headerIcon,
+            pressed && { opacity: 0.6 },
+          ]}
         >
           <Ionicons name="settings-outline" size={20} color={colors.brand} />
         </Pressable>
@@ -166,7 +179,9 @@ export default function DashboardScreen() {
             ? `${repasToday.recette.nom} · ${repasToday.type_repas}`
             : "Aucun repas planifié"}
         </Text>
-        <Text style={styles.heroHint}>{data.localisation.quartier || "Quartier non renseigné"}</Text>
+        <Text style={styles.heroHint}>
+          {data.localisation.quartier || "Quartier non renseigné"}
+        </Text>
       </View>
 
       <ScrollView
@@ -211,16 +226,35 @@ export default function DashboardScreen() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.statsRow}
       >
-        <StatCard label="En stock" value={String(stockOk)} hint="ingrédients > 0" />
-        <StatCard label="Rupture" value={String(stockEmpty)} hint="quantité à 0" tone="accent" />
+        <StatCard
+          label="En stock"
+          value={String(stockOk)}
+          hint="ingrédients > 0"
+        />
+        <StatCard
+          label="Rupture"
+          value={String(stockEmpty)}
+          hint="quantité à 0"
+          tone="accent"
+        />
         <StatCard
           label="Budget restant"
-          value={state.budget ? formatAr(state.budget.montant_restant, state.budget.devise) : "n/a"}
-          hint={state.budget ? `période : ${state.budget.periode}` : "budget non trouvé"}
+          value={
+            state.budget
+              ? formatAr(state.budget.montant_restant, state.budget.devise)
+              : "n/a"
+          }
+          hint={
+            state.budget
+              ? `période : ${state.budget.periode}`
+              : "budget non trouvé"
+          }
         />
         <StatCard
           label="Marché suggéré"
-          value={state.market ? state.market.point_de_vente.nom : "Aucune suggestion"}
+          value={
+            state.market ? state.market.point_de_vente.nom : "Aucune suggestion"
+          }
           hint={
             state.market
               ? `${formatAr(state.market.prix)} · ${state.market.itineraire?.niveau_securite ?? "n/a"}`
@@ -270,7 +304,13 @@ function StatCard({
   return (
     <View style={styles.statCard}>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, tone === "accent" && { color: colors.accent }]} numberOfLines={1}>
+      <Text
+        style={[
+          styles.statValue,
+          tone === "accent" && { color: colors.accent },
+        ]}
+        numberOfLines={1}
+      >
         {value}
       </Text>
       <Text style={styles.statHint} numberOfLines={1}>
@@ -307,7 +347,12 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
-  heroValue: { fontSize: 20, fontWeight: "700", color: colors.ink, marginTop: 4 },
+  heroValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: colors.ink,
+    marginTop: 4,
+  },
   heroHint: { fontSize: type.small, color: colors.muted },
   carouselWrap: { marginHorizontal: -space.lg },
   carousel: { gap: space.sm, paddingHorizontal: space.lg },
@@ -334,7 +379,12 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
-  statValue: { fontSize: 20, fontWeight: "700", color: colors.ink, marginTop: 4 },
+  statValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: colors.ink,
+    marginTop: 4,
+  },
   statHint: { fontSize: type.small, color: colors.muted },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   error: {

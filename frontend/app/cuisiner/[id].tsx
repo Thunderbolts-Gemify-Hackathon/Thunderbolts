@@ -45,7 +45,7 @@ export default function ModeCuisineScreen() {
     recette?.id,
     profilId,
     token,
-    true
+    Boolean(recette?.id && profilId && token)
   );
 
   const [stepIndex, setStepIndex] = useState(0);
@@ -53,6 +53,7 @@ export default function ModeCuisineScreen() {
   const [cameraReady, setCameraReady] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  const autoHandsFreeTried = useRef(false);
 
   const [showGuide, setShowGuide] = useState(false);
   const [showQuit, setShowQuit] = useState(false);
@@ -98,11 +99,7 @@ export default function ModeCuisineScreen() {
     },
   });
 
-  const toggleHandsFree = useCallback(async () => {
-    if (handsFree) {
-      setHandsFree(false);
-      return;
-    }
+  const enableHandsFree = useCallback(async () => {
     if (!permission?.granted) {
       const res = await requestPermission();
       if (!res.granted) {
@@ -110,7 +107,7 @@ export default function ModeCuisineScreen() {
           "Caméra indisponible",
           "Sans accès caméra, utilise les boutons pour changer d'étape."
         );
-        return;
+        return false;
       }
     }
     setCameraReady(false);
@@ -120,7 +117,26 @@ export default function ModeCuisineScreen() {
       setShowGuide(true);
       await AsyncStorage.setItem(GUIDE_VU_KEY, "1");
     }
-  }, [handsFree, permission, requestPermission]);
+    return true;
+  }, [permission, requestPermission]);
+
+  const toggleHandsFree = useCallback(async () => {
+    if (handsFree) {
+      setHandsFree(false);
+      return;
+    }
+    await enableHandsFree();
+  }, [handsFree, enableHandsFree]);
+
+  // Dès que les étapes sont prêtes, active le mode mains libres une fois
+  // (demande caméra + guide) pour que le geste soit testable sans chercher
+  // l'icône discrète en haut à droite.
+  useEffect(() => {
+    if (autoHandsFreeTried.current) return;
+    if (!etapes?.length || loading || handsFree) return;
+    autoHandsFreeTried.current = true;
+    void enableHandsFree();
+  }, [etapes, loading, handsFree, enableHandsFree]);
 
   const requestQuit = useCallback(() => {
     setShowQuit(true);
@@ -215,10 +231,20 @@ export default function ModeCuisineScreen() {
       ) : null}
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {loading ? (
+        {!profilId || !token ? (
+          <View style={styles.center}>
+            <Text style={styles.errorText}>
+              Session incomplète. Reconnecte-toi, puis rouvre la recette depuis le planning.
+            </Text>
+            <Pressable onPress={() => router.replace("/signin")} style={styles.retryBtn}>
+              <Text style={styles.retryLabel}>Se connecter</Text>
+            </Pressable>
+          </View>
+        ) : loading ? (
           <View style={styles.center}>
             <ActivityIndicator color={colors.brand} size="large" />
             <Text style={styles.meta}>Kaly Tao prépare les étapes…</Text>
+            <Text style={styles.metaHint}>Ça peut prendre 10–30 s (Gemma / Ollama).</Text>
           </View>
         ) : error ? (
           <View style={styles.center}>
@@ -240,8 +266,24 @@ export default function ModeCuisineScreen() {
                 ))}
               </View>
             ) : null}
+            {!handsFree ? (
+              <Pressable onPress={() => void enableHandsFree()} style={styles.handsFreeCta}>
+                <Text style={styles.handsFreeEmoji}>✋</Text>
+                <Text style={styles.handsFreeCtaLabel}>Activer le mode mains libres</Text>
+                <Text style={styles.handsFreeCtaHint}>
+                  Recouvre la caméra pour passer à l’étape suivante
+                </Text>
+              </Pressable>
+            ) : null}
           </>
-        ) : null}
+        ) : (
+          <View style={styles.center}>
+            <Text style={styles.errorText}>Aucune étape disponible pour cette recette.</Text>
+            <Pressable onPress={() => void fetchEtapes()} style={styles.retryBtn}>
+              <Text style={styles.retryLabel}>Générer les étapes</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
 
       {handsFree && permission?.granted ? (
@@ -433,10 +475,24 @@ const styles = StyleSheet.create({
     borderColor: colors.line,
   },
   chipText: { fontSize: type.body, color: colors.ink, fontWeight: "600" },
-  meta: { fontSize: type.body, color: colors.muted },
+  meta: { fontSize: type.body, color: colors.muted, textAlign: "center" },
+  metaHint: { fontSize: type.small, color: colors.muted, textAlign: "center", opacity: 0.8 },
   errorText: { fontSize: type.body, color: colors.danger, textAlign: "center" },
   retryBtn: { paddingHorizontal: space.lg, paddingVertical: space.sm },
   retryLabel: { color: colors.brand, fontWeight: "700", textDecorationLine: "underline" },
+  handsFreeCta: {
+    marginTop: space.xl,
+    backgroundColor: "rgba(255,255,255,0.8)",
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: space.lg,
+    alignItems: "center",
+    gap: 4,
+  },
+  handsFreeEmoji: { fontSize: 28 },
+  handsFreeCtaLabel: { fontSize: type.body, fontWeight: "800", color: colors.ink },
+  handsFreeCtaHint: { fontSize: type.small, color: colors.muted, textAlign: "center" },
   cameraDock: {
     position: "absolute",
     right: space.lg,

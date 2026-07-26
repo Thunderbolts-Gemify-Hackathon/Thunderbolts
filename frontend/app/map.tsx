@@ -15,11 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 
 import { ApiError } from "@/api/http";
-import {
-  findNearbyMarket,
-  pickSafest,
-  type MarketMatch,
-} from "@/api/market";
+import { findNearbyMarket, pickSafest, type MarketMatch } from "@/api/market";
 import { QUARTIER_COORDS } from "@/api/onboarding";
 import { listIngredients, type Ingredient } from "@/api/stock";
 import { buildMarketMapHtml } from "@/lib/mapHtml";
@@ -37,7 +33,11 @@ const SORT_OPTIONS: { value: SortMode; label: string }[] = [
   { value: "prix", label: "Moins cher" },
 ];
 
-const SECURITE_FILTERS: { value: string; label: string; color: keyof typeof colors }[] = [
+const SECURITE_FILTERS: {
+  value: string;
+  label: string;
+  color: keyof typeof colors;
+}[] = [
   { value: "sur", label: "Sûr", color: "ok" },
   { value: "prudence", label: "Prudence", color: "accent" },
   { value: "a_eviter", label: "À éviter", color: "danger" },
@@ -64,7 +64,8 @@ export default function MapScreen() {
     if (lat != null && lon != null) return { lat, lon };
     return quartier ? QUARTIER_COORDS[quartier] : null;
   }, [lat, lon, quartier]);
-  const prefId = typeof params.ingredientId === "string" ? params.ingredientId : null;
+  const prefId =
+    typeof params.ingredientId === "string" ? params.ingredientId : null;
 
   const [catalog, setCatalog] = useState<Ingredient[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(prefId);
@@ -78,9 +79,11 @@ export default function MapScreen() {
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [routeInfo, setRouteInfo] = useState<{ id: string; distanceM: number; durationS: number } | null>(
-    null
-  );
+  const [routeInfo, setRouteInfo] = useState<{
+    id: string;
+    distanceM: number;
+    durationS: number;
+  } | null>(null);
 
   const selectedIngredient = catalog.find((i) => i.id === selectedId) ?? null;
   const recommended = useMemo(() => pickSafest(matches), [matches]);
@@ -88,7 +91,11 @@ export default function MapScreen() {
   const sortedMatches = useMemo(() => {
     const list = [...matches];
     if (sortMode === "distance") {
-      list.sort((a, b) => (a.itineraire?.distance ?? Infinity) - (b.itineraire?.distance ?? Infinity));
+      list.sort(
+        (a, b) =>
+          (a.itineraire?.distance ?? Infinity) -
+          (b.itineraire?.distance ?? Infinity),
+      );
     } else if (sortMode === "prix") {
       list.sort((a, b) => a.prix - b.prix);
     }
@@ -99,17 +106,27 @@ export default function MapScreen() {
 
   const search = useCallback(async () => {
     if (!selectedId || !coords) {
-      setError(coords ? "Choisis un ingrédient." : "Quartier manquant. Termine l'onboarding localisation.");
+      setError(
+        coords
+          ? "Choisis un ingrédient."
+          : "Quartier manquant. Termine l'onboarding localisation.",
+      );
       return;
     }
     setSearching(true);
     setError(null);
     try {
-      const rows = await findNearbyMarket(selectedId, coords.lat, coords.lon, rayonKm);
+      const rows = await findNearbyMarket(
+        selectedId,
+        coords.lat,
+        coords.lon,
+        rayonKm,
+      );
       setMatches(rows);
       const best = pickSafest(rows);
       setSelectedPdvId(best?.point_de_vente.id ?? null);
-      if (rows.length === 0) setError(`Aucun point de vente dans un rayon de ${rayonKm} km.`);
+      if (rows.length === 0)
+        setError(`Aucun point de vente dans un rayon de ${rayonKm} km.`);
     } catch (e) {
       setMatches([]);
       setError(e instanceof ApiError ? e.detail : "Carte indisponible");
@@ -165,12 +182,15 @@ export default function MapScreen() {
   const focusPoint = (id: string) => {
     setSelectedPdvId(id);
     setRouteInfo(null);
-    webviewRef.current?.injectJavaScript(`window.focusPoint(${JSON.stringify(id)}); true;`);
+    webviewRef.current?.injectJavaScript(
+      `window.focusPoint(${JSON.stringify(id)}); true;`,
+    );
   };
 
   const onCardIndexChange = (offsetX: number) => {
     const index = Math.round(offsetX / (cardWidth + space.sm));
-    const match = sortedMatches[Math.max(0, Math.min(index, sortedMatches.length - 1))];
+    const match =
+      sortedMatches[Math.max(0, Math.min(index, sortedMatches.length - 1))];
     if (match) focusPoint(match.point_de_vente.id);
   };
 
@@ -179,7 +199,9 @@ export default function MapScreen() {
       ? hiddenSecurities.filter((v) => v !== value)
       : [...hiddenSecurities, value];
     setHiddenSecurities(next);
-    webviewRef.current?.injectJavaScript(`window.setHiddenSecurities(${JSON.stringify(next)}); true;`);
+    webviewRef.current?.injectJavaScript(
+      `window.setHiddenSecurities(${JSON.stringify(next)}); true;`,
+    );
   };
 
   const recenter = () => {
@@ -206,15 +228,25 @@ export default function MapScreen() {
                 if (msg.type === "select" && msg.id) {
                   setSelectedPdvId(msg.id);
                   setRouteInfo(null);
-                  const idx = sortedMatches.findIndex((m) => m.point_de_vente.id === msg.id);
-                  if (idx >= 0) carouselRef.current?.scrollToIndex({ index: idx, animated: true });
+                  const idx = sortedMatches.findIndex(
+                    (m) => m.point_de_vente.id === msg.id,
+                  );
+                  if (idx >= 0)
+                    carouselRef.current?.scrollToIndex({
+                      index: idx,
+                      animated: true,
+                    });
                 } else if (
                   msg.type === "route" &&
                   msg.id &&
                   msg.distanceM != null &&
                   msg.durationS != null
                 ) {
-                  setRouteInfo({ id: msg.id, distanceM: msg.distanceM, durationS: msg.durationS });
+                  setRouteInfo({
+                    id: msg.id,
+                    distanceM: msg.distanceM,
+                    durationS: msg.durationS,
+                  });
                 }
               } catch {
                 /* ignore */
@@ -235,7 +267,11 @@ export default function MapScreen() {
 
         <View style={styles.topOverlay}>
           <View style={styles.topRow}>
-            <Pressable onPress={() => router.back()} style={styles.roundBtn} hitSlop={8}>
+            <Pressable
+              onPress={() => router.back()}
+              style={styles.roundBtn}
+              hitSlop={8}
+            >
               <Feather name="arrow-left" size={20} color={colors.ink} />
             </Pressable>
             <View style={styles.searchBox}>
@@ -247,7 +283,11 @@ export default function MapScreen() {
                   setSuggestionsOpen(true);
                 }}
                 onFocus={() => setSuggestionsOpen(true)}
-                placeholder={selectedIngredient ? selectedIngredient.nom : "Chercher un ingrédient…"}
+                placeholder={
+                  selectedIngredient
+                    ? selectedIngredient.nom
+                    : "Chercher un ingrédient…"
+                }
                 placeholderTextColor={colors.muted}
                 style={styles.searchInput}
               />
@@ -281,7 +321,12 @@ export default function MapScreen() {
                   onPress={() => setSortMode(opt.value)}
                   style={[styles.sortChip, active && styles.sortChipActive]}
                 >
-                  <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
+                  <Text
+                    style={[
+                      styles.sortChipText,
+                      active && styles.sortChipTextActive,
+                    ]}
+                  >
                     {opt.label}
                   </Text>
                 </Pressable>
@@ -302,7 +347,12 @@ export default function MapScreen() {
                   onPress={() => setRayonKm(km)}
                   style={[styles.sortChip, active && styles.sortChipActive]}
                 >
-                  <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
+                  <Text
+                    style={[
+                      styles.sortChipText,
+                      active && styles.sortChipTextActive,
+                    ]}
+                  >
                     {km} km
                   </Text>
                 </Pressable>
@@ -315,7 +365,8 @@ export default function MapScreen() {
           <View style={styles.routeBadge}>
             <Feather name="map-pin" size={13} color={colors.brand} />
             <Text style={styles.routeBadgeText}>
-              Trajet réel : {formatDistanceM(routeInfo.distanceM)} · {formatDureeS(routeInfo.durationS)}
+              Trajet réel : {formatDistanceM(routeInfo.distanceM)} ·{" "}
+              {formatDureeS(routeInfo.durationS)}
             </Text>
           </View>
         ) : null}
@@ -330,7 +381,11 @@ export default function MapScreen() {
           {SECURITE_FILTERS.map((f) => {
             const active = !hiddenSecurities.includes(f.value);
             return (
-              <Pressable key={f.value} onPress={() => toggleSecurite(f.value)} style={styles.legendItem}>
+              <Pressable
+                key={f.value}
+                onPress={() => toggleSecurite(f.value)}
+                style={styles.legendItem}
+              >
                 <View
                   style={[
                     styles.legendDot,
@@ -338,13 +393,19 @@ export default function MapScreen() {
                     !active && styles.legendDotOff,
                   ]}
                 />
-                <Text style={[styles.legendLabel, !active && styles.legendLabelOff]}>{f.label}</Text>
+                <Text
+                  style={[styles.legendLabel, !active && styles.legendLabelOff]}
+                >
+                  {f.label}
+                </Text>
               </Pressable>
             );
           })}
         </View>
 
-        {error && matches.length > 0 ? <Text style={styles.error}>{error}</Text> : null}
+        {error && matches.length > 0 ? (
+          <Text style={styles.error}>{error}</Text>
+        ) : null}
 
         {sortedMatches.length > 0 ? (
           <FlatList
@@ -357,7 +418,9 @@ export default function MapScreen() {
             decelerationRate="fast"
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ paddingHorizontal: GUTTER, gap: space.sm }}
-            onMomentumScrollEnd={(ev) => onCardIndexChange(ev.nativeEvent.contentOffset.x)}
+            onMomentumScrollEnd={(ev) =>
+              onCardIndexChange(ev.nativeEvent.contentOffset.x)
+            }
             getItemLayout={(_, index) => ({
               length: cardWidth + space.sm,
               offset: (cardWidth + space.sm) * index,
@@ -366,12 +429,17 @@ export default function MapScreen() {
             renderItem={({ item }) => (
               <MarketCard
                 match={item}
-                recommended={item.point_de_vente.id === recommended?.point_de_vente.id}
+                recommended={
+                  item.point_de_vente.id === recommended?.point_de_vente.id
+                }
                 width={cardWidth}
                 onVoirTrajet={() => focusPoint(item.point_de_vente.id)}
                 real={
                   routeInfo && routeInfo.id === item.point_de_vente.id
-                    ? { distanceM: routeInfo.distanceM, durationS: routeInfo.durationS }
+                    ? {
+                        distanceM: routeInfo.distanceM,
+                        durationS: routeInfo.durationS,
+                      }
                     : null
                 }
               />
@@ -400,7 +468,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: space.lg,
   },
-  placeholderText: { color: colors.muted, fontSize: type.body, textAlign: "center" },
+  placeholderText: {
+    color: colors.muted,
+    fontSize: type.body,
+    textAlign: "center",
+  },
   topOverlay: {
     position: "absolute",
     top: space.sm,
@@ -452,8 +524,17 @@ const styles = StyleSheet.create({
   suggestionRow: { paddingHorizontal: space.md, paddingVertical: space.sm },
   suggestionText: { color: colors.ink, fontSize: type.body },
   sortRow: { flexDirection: "row", gap: 8, alignItems: "center" },
-  rayonLabel: { flexDirection: "row", alignItems: "center", gap: 4, marginRight: 2 },
-  rayonLabelText: { fontSize: type.small, color: colors.muted, fontWeight: "600" },
+  rayonLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginRight: 2,
+  },
+  rayonLabelText: {
+    fontSize: type.small,
+    color: colors.muted,
+    fontWeight: "600",
+  },
   sortChip: {
     backgroundColor: colors.surface,
     borderRadius: 999,
@@ -486,7 +567,12 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
   },
-  routeBadgeText: { fontSize: type.small, color: colors.ink, fontWeight: "600", flexShrink: 1 },
+  routeBadgeText: {
+    fontSize: type.small,
+    color: colors.ink,
+    fontWeight: "600",
+    flexShrink: 1,
+  },
   recenterBtn: {
     position: "absolute",
     right: space.md,

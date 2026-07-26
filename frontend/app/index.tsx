@@ -3,6 +3,7 @@ import { Image, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useOnboarding } from "@/onboarding/store";
+import { useSession } from "@/session/SessionContext";
 import { Button } from "@/ui/Button";
 import { CurveBackdrop } from "@/ui/CurveBackdrop";
 import { Brand } from "@/ui/Typography";
@@ -10,9 +11,16 @@ import { colors, space } from "@/theme";
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const { done } = useOnboarding();
+  const { done, resumeStep } = useOnboarding();
+  const { session } = useSession();
 
   if (done) return <Redirect href="/dashboard" />;
+  // Session valide mais onboarding interrompu en route (app fermée en plein
+  // parcours) : on reprend là où on s'était arrêté plutôt que de renvoyer
+  // vers l'inscription, ce qui créerait un second compte.
+  if (session?.apiToken && resumeStep) {
+    return <Redirect href={`/onboarding/${resumeStep}`} />;
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
