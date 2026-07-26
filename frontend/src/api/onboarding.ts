@@ -204,6 +204,60 @@ export function getMonProfilComplet(token: string) {
   return api<ProfilCompletOut>("/onboarding/mine/complet", { token });
 }
 
+export type PatchResult = { planning_invalide?: boolean };
+
+export function patchProfil(
+  profilId: string,
+  payload: Partial<Omit<ProfilCreate, "utilisateur_id">>,
+  token: string
+) {
+  return api<Profil & PatchResult>(`/onboarding/profil/${profilId}`, {
+    method: "PATCH",
+    body: payload,
+    token,
+  });
+}
+
+export function patchFoyer(profilId: string, payload: Partial<FoyerCreate>, token: string) {
+  return api<FoyerOut & PatchResult>(`/onboarding/profil/${profilId}/foyer`, {
+    method: "PATCH",
+    body: payload,
+    token,
+  });
+}
+
+export function patchPreferences(
+  profilId: string,
+  payload: Partial<PreferencesCreate>,
+  token: string
+) {
+  return api<PreferencesOut & PatchResult>(`/onboarding/profil/${profilId}/preferences`, {
+    method: "PATCH",
+    body: payload,
+    token,
+  });
+}
+
+export function patchBudget(profilId: string, payload: Partial<BudgetCreate>, token: string) {
+  return api<Budget & PatchResult>(`/onboarding/profil/${profilId}/budget`, {
+    method: "PATCH",
+    body: payload,
+    token,
+  });
+}
+
+export function patchLocalisation(
+  profilId: string,
+  payload: Partial<LocalisationCreate>,
+  token: string
+) {
+  return api<Localisation & PatchResult>(`/onboarding/profil/${profilId}/localisation`, {
+    method: "PATCH",
+    body: payload,
+    token,
+  });
+}
+
 /** Coords démo Antananarivo par quartier (seed marchés). */
 export const QUARTIER_COORDS: Record<string, { lat: number; lon: number }> = {
   Analakely: { lat: -18.9102, lon: 47.5256 },

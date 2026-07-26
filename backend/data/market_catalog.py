@@ -25,6 +25,21 @@ PRIX_BASE = {
     "canard": 15000,
     "pois chiches": 4500,
     "arachide": 6000,
+    "oeuf": 800,
+    "lait de coco": 6000,
+    "carotte": 2200,
+    "chou": 1800,
+    "banane": 2500,
+    "patate douce": 2000,
+    "manioc": 1500,
+    "lentilles": 5000,
+    "nouilles": 4000,
+    "miel": 12000,
+    "citron": 500,
+    "mais": 2000,
+    "cresson": 1600,
+    "aubergine": 2500,
+    "courgette": 2300,
 }
 PRIX_MULT = [1.15, 1.25, 1.20, 0.75, 0.85, 0.70, 1.10, 0.90]
 

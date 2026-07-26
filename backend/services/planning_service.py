@@ -9,6 +9,20 @@ from backend.models.recette import Recette, RecetteIngredient
 from backend.services import stock_service
 
 
+def invalidate_plannings(db: Session, profil_id: str) -> int:
+    """Supprime les plannings sans repas déjà consommés (profil/prefs/budget changés)."""
+    plannings = db.query(Planning).filter(Planning.profil_id == profil_id).all()
+    deleted = 0
+    for planning in plannings:
+        if any(r.statut == "consomme" for r in planning.repas):
+            continue
+        db.delete(planning)
+        deleted += 1
+    if deleted:
+        db.commit()
+    return deleted
+
+
 def get_planning(
     db: Session, profil_id: str, periode: str, date_debut: date
 ) -> Planning | None:
@@ -98,7 +112,24 @@ def _repas_charge(db: Session, repas_planifie_id: str) -> RepasPlanifie:
     return repas
 
 
+def _cout_estime_repas(repas: RepasPlanifie) -> float:
+    total = 0.0
+    for ligne in repas.recette.ingredients:
+        prix = getattr(ligne.ingredient, "prix_moyen_reference", None) or 0.0
+        # prix_moyen_reference ≈ Ar / kg ou unité ; poids_requis en g → /1000
+        unite = (ligne.unite or "g").lower()
+        qty = float(ligne.poids_requis)
+        if unite in ("g", "ml"):
+            total += prix * (qty / 1000.0)
+        else:
+            total += prix * qty
+    return round(total, 2)
+
+
 def valider_repas(db: Session, repas_planifie_id: str) -> RepasPlanifie:
+    from backend.schemas.depense import DepenseCreate
+    from backend.services import budget_service
+
     repas = _repas_charge(db, repas_planifie_id)
     if repas.statut == "consomme":
         raise HTTPException(status_code=400, detail="Ce repas a déjà été validé")
@@ -115,6 +146,21 @@ def valider_repas(db: Session, repas_planifie_id: str) -> RepasPlanifie:
             commit=False,
         )
     repas.statut = "consomme"
+    cout = _cout_estime_repas(repas)
+    if cout > 0:
+        try:
+            budget_service.enregistrer_depense(
+                db,
+                repas.planning.profil_id,
+                DepenseCreate(
+                    montant=cout,
+                    source="repas",
+                    label=f"Repas · {repas.recette.nom}",
+                ),
+                commit=False,
+            )
+        except HTTPException:
+            pass
     db.commit()
     db.refresh(repas)
     return repas

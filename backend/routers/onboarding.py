@@ -7,12 +7,12 @@ from backend.database import get_db
 from backend.deps import get_current_utilisateur, require_profil_owner
 from backend.models.profil import Profil
 from backend.models.utilisateur import Utilisateur
-from backend.schemas.budget import BudgetCreate, BudgetOut
+from backend.schemas.budget import BudgetCreate, BudgetOut, BudgetUpdate
 from backend.schemas.etat_du_jour import EtatDuJourCreate, EtatDuJourOut
-from backend.schemas.foyer import FoyerCreate, FoyerOut
-from backend.schemas.localisation import LocalisationCreate, LocalisationOut
-from backend.schemas.preferences import PreferencesCreate, PreferencesOut
-from backend.schemas.profil import ProfilCreate, ProfilOut
+from backend.schemas.foyer import FoyerCreate, FoyerOut, FoyerUpdate
+from backend.schemas.localisation import LocalisationCreate, LocalisationOut, LocalisationUpdate
+from backend.schemas.preferences import PreferencesCreate, PreferencesOut, PreferencesUpdate
+from backend.schemas.profil import ProfilCreate, ProfilOut, ProfilUpdate
 from backend.services import onboarding_service, onboarding_suite
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
@@ -55,6 +55,15 @@ def get_profil(profil: Profil = Depends(require_profil_owner)):
     return onboarding_service.enrich_profil_out(profil)
 
 
+@router.patch("/profil/{profil_id}", response_model=ProfilOut)
+def patch_profil(
+    payload: ProfilUpdate,
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    return onboarding_service.update_profil(db, profil.id, payload)
+
+
 @router.post("/profil/{profil_id}/foyer", response_model=FoyerOut, status_code=201)
 def create_foyer(
     payload: FoyerCreate,
@@ -72,6 +81,15 @@ def get_foyer(
     return onboarding_service.get_foyer_by_profil(db, profil.id)
 
 
+@router.patch("/profil/{profil_id}/foyer", response_model=FoyerOut)
+def patch_foyer(
+    payload: FoyerUpdate,
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    return onboarding_service.update_foyer(db, profil.id, payload)
+
+
 @router.post("/profil/{profil_id}/preferences", response_model=PreferencesOut, status_code=201)
 def create_preferences(
     payload: PreferencesCreate,
@@ -79,6 +97,23 @@ def create_preferences(
     db: Session = Depends(get_db),
 ):
     return onboarding_service.create_preferences(db, profil.id, payload)
+
+
+@router.get("/profil/{profil_id}/preferences", response_model=PreferencesOut)
+def get_preferences(
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    return onboarding_service.get_preferences_by_profil(db, profil.id)
+
+
+@router.patch("/profil/{profil_id}/preferences", response_model=PreferencesOut)
+def patch_preferences(
+    payload: PreferencesUpdate,
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    return onboarding_service.update_preferences(db, profil.id, payload)
 
 
 @router.post("/profil/{profil_id}/budget", response_model=BudgetOut, status_code=201)
@@ -98,6 +133,15 @@ def get_budget(
     return onboarding_suite.get_budget_by_profil(db, profil.id)
 
 
+@router.patch("/profil/{profil_id}/budget", response_model=BudgetOut)
+def patch_budget(
+    payload: BudgetUpdate,
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    return onboarding_suite.update_budget(db, profil.id, payload)
+
+
 @router.post("/profil/{profil_id}/localisation", response_model=LocalisationOut, status_code=201)
 def create_localisation(
     payload: LocalisationCreate,
@@ -105,6 +149,23 @@ def create_localisation(
     db: Session = Depends(get_db),
 ):
     return onboarding_suite.create_localisation(db, profil.id, payload)
+
+
+@router.get("/profil/{profil_id}/localisation", response_model=LocalisationOut)
+def get_localisation(
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    return onboarding_suite.get_localisation_by_profil(db, profil.id)
+
+
+@router.patch("/profil/{profil_id}/localisation", response_model=LocalisationOut)
+def patch_localisation(
+    payload: LocalisationUpdate,
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    return onboarding_suite.update_localisation(db, profil.id, payload)
 
 
 @router.post("/profil/{profil_id}/etat-du-jour", response_model=EtatDuJourOut, status_code=201)

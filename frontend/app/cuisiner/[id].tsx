@@ -22,13 +22,13 @@ import { validerRepas } from "@/api/planning";
 import { useHandCoverGesture } from "@/lib/handGesture";
 import { getCachedContext, getCachedRecette } from "@/lib/recipeCache";
 import { recetteVisual } from "@/lib/recipeVisual";
-import { speak } from "@/lib/speech";
+import { listenOnce, speak } from "@/lib/speech";
 import { useEtapesRecette } from "@/lib/useEtapesRecette";
 import { useSession } from "@/session/SessionContext";
 import { colors, radius, space, type } from "@/theme";
 
 const GUIDE_VU_KEY = "kalitao.cuisine.guideVu";
-const TIMER_PRESETS_MIN = [1, 3, 5, 10];
+const TIMER_PRESETS_MIN = [1, 3, 5, 10, 15];
 
 export default function ModeCuisineScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -61,6 +61,8 @@ export default function ModeCuisineScreen() {
   const [showDone, setShowDone] = useState(false);
   const [timerOpen, setTimerOpen] = useState(false);
   const [timerLeft, setTimerLeft] = useState<number | null>(null);
+  const [timerPaused, setTimerPaused] = useState(false);
+  const [listeningCmd, setListeningCmd] = useState(false);
 
   const etapesList = Array.isArray(etapes) ? etapes : [];
   const total = etapesList.length;
@@ -164,11 +166,12 @@ export default function ModeCuisineScreen() {
   }, [requestQuit]);
 
   useEffect(() => {
-    if (timerLeft == null) return;
+    if (timerLeft == null || timerPaused) return;
     if (timerLeft <= 0) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       speak("Le minuteur est terminé.");
       setTimerLeft(null);
+      setTimerPaused(false);
       return;
     }
     const t = setTimeout(
@@ -176,12 +179,46 @@ export default function ModeCuisineScreen() {
       1000,
     );
     return () => clearTimeout(t);
-  }, [timerLeft]);
+  }, [timerLeft, timerPaused]);
 
   const startTimer = (minutes: number) => {
     setTimerLeft(minutes * 60);
+    setTimerPaused(false);
     setTimerOpen(false);
+    speak(`Minuteur ${minutes} minutes.`);
   };
+
+  const repeatStep = useCallback(() => {
+    const cur = etapesList[stepIndexRef.current];
+    if (cur?.titre) {
+      speak(`Étape ${cur.numero}. ${cur.titre}`);
+    }
+  }, [etapesList]);
+
+  const handleVoiceCommand = useCallback(async () => {
+    if (listeningCmd) return;
+    setListeningCmd(true);
+    speak("Commande ?");
+    const result = await listenOnce();
+    setListeningCmd(false);
+    if ("error" in result) {
+      Alert.alert("Voix", result.error);
+      return;
+    }
+    const t = result.text.toLowerCase();
+    if (/\b(suivant|next|avance)\b/.test(t)) {
+      goNext();
+    } else if (/\b(répète|repete|repeat)\b/.test(t)) {
+      repeatStep();
+    } else if (/\b(pause|stop)\b/.test(t)) {
+      setTimerPaused((p) => !p);
+      speak(timerPaused ? "Minuteur repris." : "Minuteur en pause.");
+    } else if (/\b(précédent|precedent|retour)\b/.test(t)) {
+      goPrev();
+    } else {
+      speak("Dis suivant, répète ou pause.");
+    }
+  }, [listeningCmd, goNext, goPrev, repeatStep, timerPaused]);
 
   const onFinish = async () => {
     setShowDone(false);
@@ -375,13 +412,32 @@ export default function ModeCuisineScreen() {
       ) : null}
 
       {timerLeft != null ? (
-        <Pressable style={styles.timerBadge} onPress={() => setTimerOpen(true)}>
-          <Feather name="clock" size={14} color="#F7F3EA" />
-          <Text style={styles.timerBadgeText}>{formatMmSs(timerLeft)}</Text>
+        <Pressable
+          style={styles.timerBadge}
+          onPress={() => setTimerPaused((p) => !p)}
+          onLongPress={() => setTimerOpen(true)}
+        >
+          <Feather name={timerPaused ? "pause" : "clock"} size={14} color="#F7F3EA" />
+          <Text style={styles.timerBadgeText}>
+            {timerPaused ? "Pause " : ""}
+            {formatMmSs(timerLeft)}
+          </Text>
         </Pressable>
       ) : null}
 
       <View style={styles.bottomBar}>
+        <Pressable
+          onPress={() => void handleVoiceCommand()}
+          style={styles.iconBtn}
+          hitSlop={8}
+          disabled={listeningCmd}
+        >
+          <Feather
+            name={listeningCmd ? "radio" : "mic"}
+            size={20}
+            color={colors.ink}
+          />
+        </Pressable>
         <Pressable
           onPress={() => setTimerOpen(true)}
           style={styles.iconBtn}
@@ -490,10 +546,21 @@ export default function ModeCuisineScreen() {
               <>
                 <Text style={styles.timerDisplay}>{formatMmSs(timerLeft)}</Text>
                 <Pressable
-                  onPress={() => setTimerLeft(null)}
+                  onPress={() => setTimerPaused((p) => !p)}
                   style={styles.quitConfirmBtn}
                 >
-                  <Text style={styles.quitConfirmLabel}>Arrêter</Text>
+                  <Text style={styles.quitConfirmLabel}>
+                    {timerPaused ? "Reprendre" : "Pause"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    setTimerLeft(null);
+                    setTimerPaused(false);
+                  }}
+                  style={styles.quitCancelBtn}
+                >
+                  <Text style={styles.quitCancelLabel}>Arrêter</Text>
                 </Pressable>
               </>
             ) : (

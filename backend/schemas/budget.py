@@ -12,6 +12,13 @@ class BudgetCreate(BaseModel):
     devise: str = Field(default="Ar", min_length=1, max_length=10)
 
 
+class BudgetUpdate(BaseModel):
+    montant: Optional[float] = Field(default=None, gt=0)
+    periode: Optional[PeriodeBudget] = None
+    montant_restant: Optional[float] = Field(default=None, ge=0)
+    devise: Optional[str] = Field(default=None, min_length=1, max_length=10)
+
+
 class BudgetOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -21,3 +28,4 @@ class BudgetOut(BaseModel):
     periode: str
     montant_restant: float
     devise: str = "Ar"
+    planning_invalide: bool = False

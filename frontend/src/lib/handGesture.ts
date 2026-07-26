@@ -5,20 +5,31 @@ import type { CameraView } from "expo-camera";
  * Détection de main devant la caméra selfie (Expo Go, sans ML).
  *
  * Principe : micro-captures JPEG. Une main devant l'objectif assombrit /
- * uniformise l'image → JPEG nettement plus petit. Dès que 2 captures
- * consécutives sont "basses", on considère la main détectée → on avance.
+ * uniformise l'image → JPEG nettement plus petit. Dès que 2–3 captures
+ * consécutives sont sous le seuil, on considère la main détectée → on avance.
  * Ensuite il faut retirer la main avant le prochain déclenchement.
+ *
+ * Seuils (v2) :
+ * - HAND_RATIO 0.55 : plus strict qu'avant (0.62) pour moins de faux positifs
+ *   en cuisine lumineuse (ombres / passage).
+ * - STRONG_HAND_RATIO 0.35 : main très proche = 1 frame suffit
+ * - RELEASE_RATIO 0.82 : main retirée clairement avant réarmement
+ *
+ * Future : MediaPipe Hands / TFLite pour landmarks (doigts) — hors Expo Go
+ * sans custom native module. Ce heuristic reste le chemin supporté.
  *
  * Aucun setState pendant la boucle → évite le scintillement de l'UI.
  */
 
-const SAMPLE_INTERVAL_MS = 420;
-const BASELINE_SAMPLES = 4;
-/** Seuil large : une main devant la selfie suffit (cuisine souvent lumineuse). */
-const HAND_RATIO = 0.62;
-const STRONG_HAND_RATIO = 0.4;
-const RELEASE_RATIO = 0.78;
-const COOLDOWN_MS = 800;
+const SAMPLE_INTERVAL_MS = 380;
+const BASELINE_SAMPLES = 5;
+/** Seuil resserré : évite déclenchements sur simples variations de lumière. */
+const HAND_RATIO = 0.55;
+const STRONG_HAND_RATIO = 0.35;
+const RELEASE_RATIO = 0.82;
+const COOLDOWN_MS = 950;
+/** Exige 3 frames « main » sauf si ratio très bas (STRONG). */
+const STREAK_NEEDED = 3;
 
 type Options = {
   enabled: boolean;
@@ -101,8 +112,9 @@ export function useHandCoverGesture({
         const now = Date.now();
         const ratio = len / baselineRef.current;
 
-        if (ratio > 0.88 && armedRef.current) {
-          baselineRef.current = baselineRef.current * 0.93 + len * 0.07;
+        // Drift lent du baseline seulement si image « normale »
+        if (ratio > 0.9 && armedRef.current) {
+          baselineRef.current = baselineRef.current * 0.95 + len * 0.05;
         }
 
         const handNow = ratio < HAND_RATIO;
@@ -121,9 +133,8 @@ export function useHandCoverGesture({
           }
         }
 
-        // 1 capture très sombre OU 2 captures "main devant" → avance
         const detected =
-          lowStreakRef.current >= 2 ||
+          lowStreakRef.current >= STREAK_NEEDED ||
           (lowStreakRef.current >= 1 && ratio < STRONG_HAND_RATIO);
 
         if (armedRef.current && detected && now >= cooldownUntilRef.current) {
@@ -144,6 +155,5 @@ export function useHandCoverGesture({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, cameraReady]);
 
-  // Plus de coverProgress animé (ça faisait scintiller tout l'écran).
   return { coverProgress: 0 };
 }

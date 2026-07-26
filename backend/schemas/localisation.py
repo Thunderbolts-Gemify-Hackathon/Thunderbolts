@@ -12,6 +12,13 @@ class LocalisationCreate(BaseModel):
     saison: Optional[Saison] = None
 
 
+class LocalisationUpdate(BaseModel):
+    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
+    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
+    quartier: Optional[str] = None
+    saison: Optional[Saison] = None
+
+
 class LocalisationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -21,3 +28,4 @@ class LocalisationOut(BaseModel):
     longitude: float
     quartier: Optional[str] = None
     saison: Optional[str] = None
+    planning_invalide: bool = False

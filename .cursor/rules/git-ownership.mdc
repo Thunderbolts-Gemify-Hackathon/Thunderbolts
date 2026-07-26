@@ -1,0 +1,33 @@
+---
+description: Jamais de git commit/push par l'agent ; attribution uniquement au propriétaire du repo
+alwaysApply: true
+---
+
+# Propriété Git — agent Cursor
+
+## Interdictions absolues
+
+L'agent **ne doit jamais** :
+
+1. Exécuter `git commit` (ni via shell, ni via MCP GitLens/GitKraken, ni via tout autre outil).
+2. Exécuter `git push` / `git push --force` / toute publication vers un remote.
+3. Exécuter `git commit --amend`, rebase interactif, ou réécriture d'historique sans demande **explicite** de l'utilisateur.
+4. Ajouter un trailer `Co-authored-by: Cursor` / `Co-authored-by: cursoragent@cursor.com` (ni aucun co-auteur Cursor).
+5. Modifier `git config user.name` / `user.email`.
+
+## Qui commit et push
+
+- **Seul l'utilisateur** crée les commits et fait les push (depuis son terminal / GitHub Desktop / IDE).
+- L'agent peut proposer un message de commit et la liste des fichiers à stager, **en texte uniquement**.
+- Même si l'utilisateur demande « commit » ou « push », l'agent **refuse** et rappelle cette règle : l'utilisateur doit le faire lui-même.
+
+## Attribution
+
+- Toute contribution doit apparaître sous l'identité Git locale de l'utilisateur (ex. Andassa / son email GitHub).
+- Ne jamais laisser Cursor apparaître comme auteur, committer ou co-auteur.
+
+## Ce que l'agent peut faire
+
+- Modifier le code localement.
+- Lancer des tests, linters, commandes de diagnostic en lecture.
+- Lire `git status` / `git diff` / `git log` pour aider, sans committer ni pusher.

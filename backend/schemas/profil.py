@@ -17,6 +17,16 @@ class ProfilCreate(BaseModel):
     condition_sante: Optional[str] = None
 
 
+class ProfilUpdate(BaseModel):
+    age: Optional[int] = Field(default=None, ge=1, le=120)
+    sexe: Optional[str] = None
+    poids: Optional[float] = Field(default=None, gt=0)
+    taille: Optional[float] = Field(default=None, gt=0)
+    niveau_activite: Optional[NiveauActivite] = None
+    objectif: Optional[Objectif] = None
+    condition_sante: Optional[str] = None
+
+
 class ProfilOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -31,3 +41,4 @@ class ProfilOut(BaseModel):
     condition_sante: Optional[str] = None
     imc: Optional[float] = None
     besoin_calorique: Optional[float] = None
+    planning_invalide: bool = False

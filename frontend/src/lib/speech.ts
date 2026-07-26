@@ -33,20 +33,28 @@ export function speakTracked(
   });
 }
 
-/**
- * STT appareil :
- * - web : Web Speech API
- * - natif Expo Go : le micro du clavier système (appelant focus l'input)
- *   Ici on tente aussi webkit si dispo (rare hors web).
- */
-export function listenOnce(lang = "fr-FR"): Promise<ListenResult> {
-  if (Platform.OS !== "web") {
-    return Promise.resolve({
-      error:
-        "Sur telephone, utilise le micro du clavier puis Envoyer. La reponse sera lue a voix haute.",
-    });
-  }
+type ExpoSpeechRecognitionModule = {
+  requestPermissionsAsync?: () => Promise<{ granted?: boolean; status?: string }>;
+  start?: (opts: Record<string, unknown>) => void;
+  stop?: () => void;
+  addListener?: (
+    event: string,
+    cb: (ev: { transcript?: string; error?: string; isFinal?: boolean }) => void
+  ) => { remove: () => void };
+};
 
+function tryNativeSpeechRecognition(): ExpoSpeechRecognitionModule | null {
+  try {
+    // Optionnel : expo-speech-recognition si présent dans le projet natif.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("expo-speech-recognition");
+    return mod?.ExpoSpeechRecognitionModule || mod?.default || mod || null;
+  } catch {
+    return null;
+  }
+}
+
+function listenWeb(lang: string): Promise<ListenResult> {
   const SpeechRecognition =
     (globalThis as unknown as {
       SpeechRecognition?: new () => SpeechRecognitionLike;
@@ -79,6 +87,91 @@ export function listenOnce(lang = "fr-FR"): Promise<ListenResult> {
       resolve({ error: "Impossible de demarrer le micro." });
     }
   });
+}
+
+function listenNativeModule(
+  mod: ExpoSpeechRecognitionModule,
+  lang: string
+): Promise<ListenResult> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result: ListenResult) => {
+      if (settled) return;
+      settled = true;
+      try {
+        mod.stop?.();
+      } catch {
+        /* ignore */
+      }
+      resolve(result);
+    };
+
+    const timer = setTimeout(() => finish({ error: "Temps d'écoute dépassé." }), 8000);
+
+    void (async () => {
+      try {
+        if (mod.requestPermissionsAsync) {
+          const perm = await mod.requestPermissionsAsync();
+          if (perm && perm.granted === false && perm.status !== "granted") {
+            clearTimeout(timer);
+            finish({
+              error:
+                "Micro refusé. Utilise le clavier puis Envoyer.",
+            });
+            return;
+          }
+        }
+        const subResult = mod.addListener?.("result", (ev) => {
+          if (ev?.isFinal === false) return;
+          const text = (ev?.transcript || "").trim();
+          clearTimeout(timer);
+          subResult?.remove();
+          subError?.remove();
+          finish(text ? { text } : { error: "Rien entendu." });
+        });
+        const subError = mod.addListener?.("error", () => {
+          clearTimeout(timer);
+          subResult?.remove();
+          subError?.remove();
+          finish({ error: "Ecoute interrompue." });
+        });
+        mod.start?.({ lang, interimResults: false, continuous: false });
+      } catch {
+        clearTimeout(timer);
+        finish({
+          error:
+            "Sur telephone, utilise le micro du clavier puis Envoyer.",
+        });
+      }
+    })();
+  });
+}
+
+/**
+ * STT appareil :
+ * - web : Web Speech API
+ * - natif : tente expo-speech-recognition si dispo, sinon message clavier
+ */
+export function listenOnce(lang = "fr-FR"): Promise<ListenResult> {
+  if (Platform.OS === "web") {
+    return listenWeb(lang);
+  }
+  const native = tryNativeSpeechRecognition();
+  if (native?.start) {
+    return listenNativeModule(native, lang);
+  }
+  return Promise.resolve({
+    error:
+      "Sur telephone, maintiens le bouton pour parler si dispo, sinon utilise le micro du clavier puis Envoyer.",
+  });
+}
+
+/**
+ * Push-to-talk : démarre l'écoute (même chemin que listenOnce).
+ * Sur web / natif module : écoute complète. Sinon erreur explicite.
+ */
+export async function pushToTalk(lang = "fr-FR"): Promise<ListenResult> {
+  return listenOnce(lang);
 }
 
 type SpeechRecognitionLike = {

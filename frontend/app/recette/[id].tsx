@@ -1,13 +1,19 @@
 import { Feather } from "@expo/vector-icons";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ApiError } from "@/api/http";
 import { annulerRepas, validerRepas } from "@/api/planning";
+import { getRecette } from "@/api/recettes";
+import type { Recette } from "@/api/repas";
 import { useFavori } from "@/lib/favorites";
-import { getCachedContext, getCachedRecette } from "@/lib/recipeCache";
+import {
+  cacheRecette,
+  getCachedContext,
+  getCachedRecette,
+} from "@/lib/recipeCache";
 import { recetteVisual } from "@/lib/recipeVisual";
 import { useEtapesRecette } from "@/lib/useEtapesRecette";
 import { useSession } from "@/session/SessionContext";
@@ -19,7 +25,9 @@ export default function RecetteDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { session } = useSession();
-  const recette = useMemo(() => (id ? getCachedRecette(id) : undefined), [id]);
+  const cached = useMemo(() => (id ? getCachedRecette(id) : undefined), [id]);
+  const [recette, setRecette] = useState<Recette | undefined>(cached);
+  const [fetching, setFetching] = useState(!cached && Boolean(id));
   const context = useMemo(() => (id ? getCachedContext(id) : undefined), [id]);
   const { favori, toggle } = useFavori(id ?? "");
 
@@ -37,12 +45,46 @@ export default function RecetteDetailScreen() {
     fetchEtapes,
   } = useEtapesRecette(recette?.id, profilId, token, false);
 
+  useEffect(() => {
+    if (!id || cached) return;
+    let alive = true;
+    setFetching(true);
+    getRecette(id, token)
+      .then((r) => {
+        if (!alive) return;
+        const mapped = r as unknown as Recette;
+        cacheRecette(mapped);
+        setRecette(mapped);
+      })
+      .catch((e) => {
+        if (alive) {
+          setError(e instanceof ApiError ? e.detail : "Recette introuvable");
+        }
+      })
+      .finally(() => {
+        if (alive) setFetching(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id, cached, token]);
+
+  if (fetching) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+        <View style={styles.notFound}>
+          <ActivityIndicator color={colors.brand} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (!recette) {
     return (
       <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
         <View style={styles.notFound}>
           <Text style={styles.notFoundText}>
-            Recette indisponible. Reviens depuis le planning pour l'ouvrir.
+            {error || "Recette indisponible. Reviens depuis le planning pour l'ouvrir."}
           </Text>
           <Pressable onPress={() => router.back()} style={styles.notFoundBtn}>
             <Text style={styles.notFoundBtnText}>Retour</Text>
@@ -80,32 +122,27 @@ export default function RecetteDetailScreen() {
     if (!etapes) void fetchEtapes();
   };
 
-  const commencerACuisiner = () => {
-    router.push(`/cuisiner/${recette.id}` as Href);
-  };
-
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
-      <View style={[styles.hero, { backgroundColor: visual.bg }]}>
-        <View style={styles.heroTopRow}>
-          <Pressable onPress={() => router.back()} style={styles.heroBtn} hitSlop={8}>
-            <Feather name="arrow-left" size={20} color={colors.ink} />
-          </Pressable>
-          <Pressable onPress={() => void toggle()} style={styles.heroBtn} hitSlop={8}>
-            <Feather name="heart" size={20} color={favori ? colors.danger : colors.ink} />
-          </Pressable>
-        </View>
-        <Text style={styles.emoji}>{visual.emoji}</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: visual.bg }]} edges={["top"]}>
+      <View style={styles.topBar}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.iconBtn}>
+          <Feather name="arrow-left" size={22} color={colors.ink} />
+        </Pressable>
+        <Pressable onPress={() => void toggle()} hitSlop={8} style={styles.iconBtn}>
+          <Feather
+            name={favori ? "heart" : "heart"}
+            size={22}
+            color={favori ? colors.accent : colors.ink}
+          />
+        </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.nom}>{recette.nom}</Text>
-        <View style={styles.metaRow}>
-          {recette.duree_minutes ? (
-            <Text style={styles.meta}>{recette.duree_minutes} minutes</Text>
-          ) : null}
-          <Text style={styles.meta}>· {Math.round(recette.kcal_total)} kcal</Text>
-        </View>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.title}>{recette.nom}</Text>
+        <Text style={styles.meta}>
+          {recette.duree_minutes ? `${recette.duree_minutes} min · ` : ""}
+          {Math.round(recette.kcal_total)} kcal
+        </Text>
 
         <View style={styles.tabs}>
           <Pressable
@@ -127,202 +164,118 @@ export default function RecetteDetailScreen() {
         </View>
 
         {tab === "ingredients" ? (
-          <View style={styles.list}>
-            {recette.ingredients.map((ligne) => (
-              <View key={ligne.ingredient.id} style={styles.ingredientRow}>
-                <Text style={styles.ingredientNom}>{ligne.ingredient.nom}</Text>
-                <Text style={styles.ingredientQty}>
-                  {ligne.poids_requis} {ligne.unite}
-                </Text>
-              </View>
+          <View style={styles.card}>
+            {(recette.ingredients || []).map((line, i) => (
+              <Text key={i} style={styles.line}>
+                {line.ingredient?.nom ?? "?"} — {line.poids_requis} {line.unite}
+              </Text>
             ))}
           </View>
         ) : (
-          <View style={styles.list}>
-            {etapesLoading ? (
-              <View style={styles.etapesLoading}>
-                <ActivityIndicator color={colors.brand} />
-                <Text style={styles.meta}>Kaly Tao prépare les étapes…</Text>
+          <View style={styles.card}>
+            {etapesLoading ? <ActivityIndicator color={colors.brand} /> : null}
+            {etapesError ? <Text style={styles.error}>{etapesError}</Text> : null}
+            {etapes?.map((e) => (
+              <View key={e.numero} style={styles.step}>
+                <Text style={styles.stepNum}>Étape {e.numero}</Text>
+                <Text style={styles.line}>{e.titre}</Text>
               </View>
-            ) : Array.isArray(etapes) && etapes.length > 0 ? (
-              etapes.map((etape) => (
-                <View key={etape.numero} style={styles.etapeRow}>
-                  <View style={styles.etapeNumero}>
-                    <Text style={styles.etapeNumeroText}>{etape.numero}</Text>
-                  </View>
-                  <View style={styles.etapeBody}>
-                    <Text style={styles.etapeTitre}>{etape.titre}</Text>
-                    {Array.isArray(etape.ingredients) && etape.ingredients.length > 0 ? (
-                      <Text style={styles.etapeIngredients}>{etape.ingredients.join(" · ")}</Text>
-                    ) : null}
-                  </View>
-                </View>
-              ))
-            ) : etapesError ? (
-              <>
-                <Text style={styles.error}>{etapesError}</Text>
-                <Pressable onPress={() => void fetchEtapes()} hitSlop={8}>
-                  <Text style={styles.retry}>Réessayer</Text>
-                </Pressable>
-              </>
-            ) : recette.instructions ? (
-              <Text style={styles.instructions}>{recette.instructions}</Text>
-            ) : (
-              <Text style={styles.instructions}>
-                Appuie sur cet onglet pour demander les étapes détaillées à Kaly Tao.
-              </Text>
-            )}
+            ))}
+            {!etapes && !etapesLoading ? (
+              <Text style={styles.line}>{recette.instructions || "Pas d'instructions."}</Text>
+            ) : null}
           </View>
         )}
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
-      </ScrollView>
 
-      <View style={styles.actionBar}>
+        <Pressable
+          style={styles.cookBtn}
+          onPress={() => router.push(`/cuisiner/${recette.id}` as Href)}
+        >
+          <Text style={styles.cookBtnText}>Mode cuisine</Text>
+        </Pressable>
+
         {canToggle ? (
           <Pressable
+            style={[styles.cookBtn, styles.validateBtn]}
             onPress={() => void onToggleValidation()}
             disabled={busy}
-            style={[styles.cookedBtn, consomme && styles.cookedBtnActive, busy && { opacity: 0.6 }]}
           >
-            <Feather
-              name="check-circle"
-              size={18}
-              color={consomme ? "#F7F3EA" : colors.muted}
-            />
-            <Text style={[styles.cookedLabel, consomme && styles.cookedLabelActive]}>Cuisiné ?</Text>
+            <Text style={styles.cookBtnText}>
+              {consomme ? "Annuler validation" : "Marquer cuisiné"}
+            </Text>
           </Pressable>
         ) : null}
-        <Pressable onPress={commencerACuisiner} style={styles.actionBtn}>
-          <Feather name="play-circle" size={18} color="#F7F3EA" />
-          <Text style={styles.actionLabel}>Commencer à cuisiner</Text>
-        </Pressable>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  hero: {
-    height: 260,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  heroTopRow: {
-    position: "absolute",
-    top: space.sm,
-    left: 0,
-    right: 0,
+  topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: space.lg,
-  },
-  heroBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "rgba(255,255,255,0.7)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emoji: { fontSize: 72 },
-  content: { padding: space.lg, gap: space.sm, paddingBottom: space.xl },
-  nom: { fontSize: 24, fontWeight: "800", color: colors.ink },
-  metaRow: { flexDirection: "row", gap: 4 },
-  meta: { fontSize: type.body, color: colors.muted, fontWeight: "600" },
-  tabs: {
-    flexDirection: "row",
-    backgroundColor: colors.surface,
-    borderRadius: radius.sm,
-    borderWidth: 1,
-    borderColor: colors.line,
-    padding: 4,
-    marginTop: space.sm,
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: space.sm,
-    borderRadius: radius.sm - 2,
-    alignItems: "center",
-  },
-  tabActive: { backgroundColor: colors.brand },
-  tabText: { fontSize: type.body, color: colors.muted, fontWeight: "600" },
-  tabTextActive: { color: "#F7F3EA" },
-  list: { gap: 4, marginTop: space.sm },
-  ingredientRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.line,
-  },
-  ingredientNom: { fontSize: type.body, color: colors.ink },
-  ingredientQty: { fontSize: type.body, color: colors.muted },
-  instructions: { fontSize: type.body, color: colors.ink, lineHeight: 22, marginTop: space.sm },
-  etapeRow: { flexDirection: "row", gap: space.sm, paddingVertical: space.sm },
-  etapeNumero: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: colors.brandSoft,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  etapeNumeroText: { color: colors.brand, fontWeight: "800", fontSize: type.small },
-  etapeBody: { flex: 1, gap: 2 },
-  etapeTitre: { fontSize: type.body, color: colors.ink, fontWeight: "600", lineHeight: 21 },
-  etapeIngredients: { fontSize: type.small, color: colors.muted },
-  error: {
-    color: colors.danger,
-    backgroundColor: "#F8E8E4",
-    padding: space.md,
-    borderRadius: 12,
-    fontSize: type.body,
-  },
-  actionBar: {
-    flexDirection: "row",
-    gap: space.sm,
-    padding: space.lg,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.line,
-    backgroundColor: colors.bg,
-  },
-  cookedBtn: {
-    flexDirection: "row",
-    gap: 6,
-    minHeight: 56,
     paddingHorizontal: space.md,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.line,
+    paddingVertical: space.sm,
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
   },
-  cookedBtnActive: { backgroundColor: colors.brand, borderColor: colors.brand },
-  cookedLabel: { fontSize: type.body, fontWeight: "700", color: colors.muted },
-  cookedLabelActive: { color: "#F7F3EA" },
-  actionBtn: {
-    flex: 1,
-    flexDirection: "row",
+  content: { padding: space.lg, gap: space.md, paddingBottom: 40 },
+  title: { fontSize: 26, fontWeight: "700", color: colors.ink },
+  meta: { fontSize: type.small, color: colors.muted },
+  tabs: { flexDirection: "row", gap: space.sm },
+  tab: {
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  tabActive: { backgroundColor: colors.brand, borderColor: colors.brand },
+  tabText: { color: colors.ink, fontWeight: "600" },
+  tabTextActive: { color: "#F7F3EA" },
+  card: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: space.md,
     gap: space.sm,
-    minHeight: 56,
-    borderRadius: 999,
+  },
+  line: { fontSize: type.body, color: colors.ink },
+  step: { gap: 2 },
+  stepNum: { fontSize: type.small, fontWeight: "700", color: colors.muted },
+  cookBtn: {
     backgroundColor: colors.brand,
+    borderRadius: radius.md,
+    padding: space.md,
+    alignItems: "center",
+  },
+  validateBtn: { backgroundColor: colors.accent },
+  cookBtnText: { color: "#fff", fontWeight: "700" },
+  error: { color: colors.danger },
+  notFound: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    padding: space.lg,
+    gap: space.md,
   },
-  actionLabel: { fontSize: 16, fontWeight: "700", color: "#F7F3EA" },
-  etapesLoading: { flexDirection: "row", alignItems: "center", gap: space.sm },
-  retry: { color: colors.brand, fontWeight: "700", textDecorationLine: "underline" },
-  notFound: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.md, padding: space.lg },
-  notFoundText: { fontSize: type.body, color: colors.muted, textAlign: "center" },
+  notFoundText: { textAlign: "center", color: colors.ink, fontSize: type.body },
   notFoundBtn: {
+    backgroundColor: colors.brand,
     paddingHorizontal: space.lg,
     paddingVertical: space.sm,
     borderRadius: radius.sm,
-    backgroundColor: colors.brand,
   },
-  notFoundBtnText: { color: "#F7F3EA", fontWeight: "700" },
+  notFoundBtnText: { color: "#fff", fontWeight: "700" },
 });

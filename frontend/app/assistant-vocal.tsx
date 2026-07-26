@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { postChat, type ChatMessage } from "@/api/chat";
 import { ApiError } from "@/api/http";
-import { listenOnce, speakTracked, stopSpeaking } from "@/lib/speech";
+import { listenOnce, pushToTalk, speakTracked, stopSpeaking } from "@/lib/speech";
 import { useOnboarding } from "@/onboarding/store";
 import { useSession } from "@/session/SessionContext";
 import { space, type } from "@/theme";
@@ -128,19 +128,20 @@ export default function AssistantVocalScreen() {
   const onPressOrb = async () => {
     if (busy) return;
     stopSpeaking();
-    if (Platform.OS === "web") {
-      setPhase("listening");
-      const result = await listenOnce();
-      if ("error" in result) {
-        setPhase("idle");
-        setError(result.error);
-        return;
+    setPhase("listening");
+    setError(null);
+    // Push-to-talk : web SpeechRecognition ou module natif si dispo
+    const result = Platform.OS === "web" ? await listenOnce() : await pushToTalk();
+    if ("error" in result) {
+      setPhase("idle");
+      setError(result.error);
+      if (Platform.OS !== "web") {
+        setShowInput(true);
+        setTimeout(() => inputRef.current?.focus(), 80);
       }
-      await sendMessage(result.text);
-    } else {
-      setShowInput(true);
-      setTimeout(() => inputRef.current?.focus(), 80);
+      return;
     }
+    await sendMessage(result.text);
   };
 
   const lastAssistant = [...transcript].reverse().find((m) => m.role === "assistant");

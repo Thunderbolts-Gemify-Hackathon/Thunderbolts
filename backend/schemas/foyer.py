@@ -30,6 +30,11 @@ class FoyerCreate(BaseModel):
     membres: list[MembreFoyerCreate] = Field(default_factory=list)
 
 
+class FoyerUpdate(BaseModel):
+    nombre_personnes: Optional[int] = Field(default=None, ge=1)
+    membres: Optional[list[MembreFoyerCreate]] = None
+
+
 class FoyerOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -37,3 +42,4 @@ class FoyerOut(BaseModel):
     profil_id: str
     nombre_personnes: int
     membres: list[MembreFoyerOut] = Field(default_factory=list)
+    planning_invalide: bool = False

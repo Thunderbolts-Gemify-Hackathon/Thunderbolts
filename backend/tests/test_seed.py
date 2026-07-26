@@ -1,14 +1,20 @@
+from backend.data.food_catalog import INGREDIENTS, RECETTES
+from backend.data.market_catalog import PRIX_BASE
 from backend.data.seed import seed
 from backend.models.ingredient import Ingredient
 from backend.models.itineraire import Itineraire
 from backend.models.point_de_vente import Offre, PointDeVente
 from backend.models.recette import Recette, RecetteIngredient
 
+N_ING = len(INGREDIENTS)
+N_REC = len(RECETTES)
+N_PRIX = len(PRIX_BASE)
+
 
 def test_seed_idempotent(db_session):
     stats1 = seed(db_session)
-    assert stats1["ingredients"] == 15
-    assert stats1["recettes"] == 12
+    assert stats1["ingredients"] == N_ING
+    assert stats1["recettes"] == N_REC
     assert stats1["points_de_vente"] == 8
     assert stats1["itineraires"] == 8
 
@@ -19,11 +25,11 @@ def test_seed_idempotent(db_session):
     n_offres = db_session.query(Offre).count()
     n_it = db_session.query(Itineraire).count()
 
-    assert n_ing == 15
-    assert n_rec == 12
+    assert n_ing == N_ING
+    assert n_rec == N_REC
     assert n_ri > 0
     assert n_pdv == 8
-    assert n_offres == 8 * 15
+    assert n_offres == 8 * N_PRIX
     assert n_it == 8
 
     seed(db_session)

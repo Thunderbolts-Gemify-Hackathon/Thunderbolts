@@ -17,6 +17,15 @@ class PreferencesCreate(BaseModel):
     aliments_detestes: list[str] = Field(default_factory=list)
 
 
+class PreferencesUpdate(BaseModel):
+    tabous: Optional[list[str]] = None
+    allergies: Optional[list[str]] = None
+    severite_allergie: Optional[SeveriteAllergie] = None
+    regime_specifique: Optional[RegimeSpecifique] = None
+    aliments_aimes: Optional[list[str]] = None
+    aliments_detestes: Optional[list[str]] = None
+
+
 class PreferencesOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -28,3 +37,4 @@ class PreferencesOut(BaseModel):
     regime_specifique: Optional[str] = None
     aliments_aimes: list[str] = Field(default_factory=list)
     aliments_detestes: list[str]
+    planning_invalide: bool = False

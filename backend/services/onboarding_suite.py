@@ -8,12 +8,12 @@ from backend.models.etat_du_jour import EtatDuJour
 from backend.models.foyer import Foyer
 from backend.models.localisation import Localisation
 from backend.models.preferences import Preferences
-from backend.schemas.budget import BudgetCreate, BudgetOut
+from backend.schemas.budget import BudgetCreate, BudgetOut, BudgetUpdate
 from backend.schemas.etat_du_jour import EtatDuJourCreate
 from backend.schemas.foyer import FoyerOut
-from backend.schemas.localisation import LocalisationCreate, LocalisationOut
+from backend.schemas.localisation import LocalisationCreate, LocalisationOut, LocalisationUpdate
 from backend.schemas.preferences import PreferencesOut
-from backend.services import onboarding_service
+from backend.services import onboarding_service, planning_service
 from backend.services.onboarding_service import _profil_or_404
 
 
@@ -103,3 +103,42 @@ def create_etat_du_jour(db: Session, profil_id: str, data: EtatDuJourCreate) -> 
     db.commit()
     db.refresh(etat)
     return etat
+
+
+def update_budget(db: Session, profil_id: str, data: BudgetUpdate) -> BudgetOut:
+    budget = get_budget_by_profil(db, profil_id)
+    updates = data.model_dump(exclude_unset=True)
+    if "montant" in updates and "montant_restant" not in updates:
+        # Recalibre le reste proportionnellement au nouveau plafond.
+        ancien = budget.montant or 1.0
+        ratio = min(1.0, budget.montant_restant / ancien) if ancien else 1.0
+        updates["montant_restant"] = round(updates["montant"] * ratio, 2)
+    for key, value in updates.items():
+        setattr(budget, key, value)
+    db.commit()
+    db.refresh(budget)
+    planning_service.invalidate_plannings(db, profil_id)
+    out = BudgetOut.model_validate(budget)
+    out.planning_invalide = True
+    return out
+
+
+def get_localisation_by_profil(db: Session, profil_id: str) -> Localisation:
+    localisation = db.query(Localisation).filter(Localisation.profil_id == profil_id).first()
+    if not localisation:
+        raise HTTPException(status_code=404, detail="Localisation introuvable pour ce profil")
+    return localisation
+
+
+def update_localisation(
+    db: Session, profil_id: str, data: LocalisationUpdate
+) -> LocalisationOut:
+    localisation = get_localisation_by_profil(db, profil_id)
+    updates = data.model_dump(exclude_unset=True)
+    for key, value in updates.items():
+        setattr(localisation, key, value)
+    db.commit()
+    db.refresh(localisation)
+    out = LocalisationOut.model_validate(localisation)
+    out.planning_invalide = False
+    return out
