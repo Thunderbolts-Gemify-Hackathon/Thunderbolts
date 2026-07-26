@@ -2,18 +2,23 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CameraView } from "expo-camera";
 
 /**
- * Détection "main devant l'objectif" sans librairie native.
- * Capture périodique d'une micro-photo : un objectif couvert → JPEG plus petit.
+ * Geste « zappe » : passer rapidement la main devant la caméra avant
+ * (pas besoin de boucher l'objectif jusqu'au noir).
  *
- * Important UX : on ne capture PAS en parallèle (sinon l'écran fige / scintille),
- * et l'intervalle est assez large pour rester fluide sur Expo Go.
+ * Heuristique Expo Go (sans ML / MediaPipe) :
+ * on mesure la taille des micro-JPEG. Un passage de main = chute brève
+ * puis retour à la normale. Un maintien prolongé est ignoré.
+ *
+ * Une vraie tracking de main (MediaPipe) demanderait un build natif —
+ * trop lourd pour Expo Go ; ce geste reste utilisable mains humides.
  */
 
-const SAMPLE_INTERVAL_MS = 700;
-const HOLD_MS = 1000;
-const COVER_RATIO = 0.42;
-const RELEASE_RATIO = 0.68;
+const SAMPLE_INTERVAL_MS = 550;
 const BASELINE_SAMPLES = 4;
+const DIP_RATIO = 0.55; // main qui passe devant
+const RECOVER_RATIO = 0.78; // main repartie
+const MAX_WAVE_MS = 900; // au-delà = maintien, pas un zappe
+const COOLDOWN_MS = 1400;
 
 type Options = {
   enabled: boolean;
@@ -23,11 +28,12 @@ type Options = {
 };
 
 export function useHandCoverGesture({ enabled, cameraRef, cameraReady, onTrigger }: Options) {
-  const [coverProgress, setCoverProgress] = useState(0);
+  /** 0 = idle, 0..1 pendant le passage de main, 1 = zappe détecté (flash court). */
+  const [waveProgress, setWaveProgress] = useState(0);
   const baselineRef = useRef<number | null>(null);
   const baselineSamplesRef = useRef<number[]>([]);
-  const coveredSinceRef = useRef<number | null>(null);
-  const armedRef = useRef(true);
+  const dipStartedAtRef = useRef<number | null>(null);
+  const cooldownUntilRef = useRef(0);
   const runningRef = useRef(false);
   const busyRef = useRef(false);
   const onTriggerRef = useRef(onTrigger);
@@ -36,10 +42,9 @@ export function useHandCoverGesture({ enabled, cameraRef, cameraReady, onTrigger
   const reset = useCallback(() => {
     baselineRef.current = null;
     baselineSamplesRef.current = [];
-    coveredSinceRef.current = null;
-    armedRef.current = true;
+    dipStartedAtRef.current = null;
     busyRef.current = false;
-    setCoverProgress(0);
+    setWaveProgress(0);
   }, []);
 
   useEffect(() => {
@@ -83,32 +88,44 @@ export function useHandCoverGesture({ enabled, cameraRef, cameraReady, onTrigger
           return;
         }
 
-        const ratio = len / baselineRef.current;
         const now = Date.now();
+        const ratio = len / baselineRef.current;
 
-        if (ratio > RELEASE_RATIO) {
-          armedRef.current = true;
+        // Recalibre doucement quand la scène est stable
+        if (ratio > 0.9 && dipStartedAtRef.current == null) {
+          baselineRef.current = baselineRef.current * 0.92 + len * 0.08;
         }
 
-        if (ratio < COVER_RATIO && armedRef.current) {
-          if (coveredSinceRef.current == null) coveredSinceRef.current = now;
-          const held = now - coveredSinceRef.current;
-          const progress = Math.min(1, held / HOLD_MS);
-          setCoverProgress((prev) => (Math.abs(prev - progress) > 0.04 ? progress : prev));
-          if (held >= HOLD_MS) {
-            armedRef.current = false;
-            coveredSinceRef.current = null;
-            setCoverProgress(0);
-            onTriggerRef.current();
+        if (now < cooldownUntilRef.current) {
+          busyRef.current = false;
+          return;
+        }
+
+        if (dipStartedAtRef.current == null) {
+          if (ratio < DIP_RATIO) {
+            dipStartedAtRef.current = now;
+            setWaveProgress(0.35);
           }
         } else {
-          if (coveredSinceRef.current != null) coveredSinceRef.current = null;
-          setCoverProgress((prev) => (prev === 0 ? prev : 0));
+          const elapsed = now - dipStartedAtRef.current;
+          if (ratio >= RECOVER_RATIO && elapsed >= 80 && elapsed <= MAX_WAVE_MS) {
+            // Zappe réussi : chute + retour rapide
+            dipStartedAtRef.current = null;
+            cooldownUntilRef.current = now + COOLDOWN_MS;
+            setWaveProgress(1);
+            onTriggerRef.current();
+            setTimeout(() => {
+              if (runningRef.current) setWaveProgress(0);
+            }, 280);
+          } else if (elapsed > MAX_WAVE_MS) {
+            // Main restée trop longtemps → pas un zappe, on annule
+            dipStartedAtRef.current = null;
+            setWaveProgress(0);
+          } else {
+            setWaveProgress(Math.min(0.85, 0.35 + elapsed / MAX_WAVE_MS));
+          }
         }
 
-        if (ratio > 0.9) {
-          baselineRef.current = baselineRef.current * 0.9 + len * 0.1;
-        }
         busyRef.current = false;
       })();
     }, SAMPLE_INTERVAL_MS);
@@ -121,5 +138,6 @@ export function useHandCoverGesture({ enabled, cameraRef, cameraReady, onTrigger
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, cameraReady]);
 
-  return { coverProgress };
+  // Alias historique : les écrans lisaient `coverProgress`
+  return { coverProgress: waveProgress, waveProgress };
 }

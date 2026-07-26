@@ -44,7 +44,7 @@ export default function ModeCuisineScreen() {
     recette?.id,
     profilId,
     token,
-    Boolean(recette?.id && profilId && token)
+    Boolean(recette?.id && profilId && token),
   );
 
   const [stepIndex, setStepIndex] = useState(0);
@@ -62,8 +62,11 @@ export default function ModeCuisineScreen() {
   const etapesList = Array.isArray(etapes) ? etapes : [];
   const total = etapesList.length;
   const isLast = total > 0 && stepIndex === total - 1;
-  const step = total > 0 ? etapesList[Math.min(stepIndex, total - 1)] : undefined;
-  const stepIngredients = Array.isArray(step?.ingredients) ? step.ingredients : [];
+  const step =
+    total > 0 ? etapesList[Math.min(stepIndex, total - 1)] : undefined;
+  const stepIngredients = Array.isArray(step?.ingredients)
+    ? step.ingredients
+    : [];
 
   useEffect(() => {
     void activateKeepAwakeAsync("mode-cuisine");
@@ -105,7 +108,7 @@ export default function ModeCuisineScreen() {
       if (!res.granted) {
         Alert.alert(
           "Caméra indisponible",
-          "Sans accès caméra, utilise le bouton « Étape suivante » en bas."
+          "Sans accès caméra, utilise le bouton « Étape suivante » en bas.",
         );
         return false;
       }
@@ -151,7 +154,10 @@ export default function ModeCuisineScreen() {
       setTimerLeft(null);
       return;
     }
-    const t = setTimeout(() => setTimerLeft((s) => (s == null ? null : s - 1)), 1000);
+    const t = setTimeout(
+      () => setTimerLeft((s) => (s == null ? null : s - 1)),
+      1000,
+    );
     return () => clearTimeout(t);
   }, [timerLeft]);
 
@@ -188,7 +194,10 @@ export default function ModeCuisineScreen() {
   const visual = recetteVisual(recette);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: visual.bg }]} edges={["top", "bottom"]}>
+    <SafeAreaView
+      style={[styles.safe, { backgroundColor: visual.bg }]}
+      edges={["top", "bottom"]}
+    >
       <View style={styles.header}>
         <Pressable onPress={requestQuit} style={styles.headerBtn} hitSlop={8}>
           <Feather name="x" size={22} color={colors.ink} />
@@ -203,8 +212,16 @@ export default function ModeCuisineScreen() {
             </Text>
           ) : null}
         </View>
-        <Pressable onPress={() => void toggleHandsFree()} style={styles.headerBtn} hitSlop={8}>
-          <Feather name={handsFree ? "video" : "video-off"} size={20} color={colors.ink} />
+        <Pressable
+          onPress={() => void toggleHandsFree()}
+          style={styles.headerBtn}
+          hitSlop={8}
+        >
+          <Feather
+            name={handsFree ? "video" : "video-off"}
+            size={20}
+            color={colors.ink}
+          />
         </Pressable>
       </View>
 
@@ -223,13 +240,20 @@ export default function ModeCuisineScreen() {
         </View>
       ) : null}
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         {!profilId || !token ? (
           <View style={styles.center}>
             <Text style={styles.errorText}>
-              Session incomplète. Reconnecte-toi, puis rouvre la recette depuis le planning.
+              Session incomplète. Reconnecte-toi, puis rouvre la recette depuis
+              le planning.
             </Text>
-            <Pressable onPress={() => router.replace("/signin")} style={styles.retryBtn}>
+            <Pressable
+              onPress={() => router.replace("/signin")}
+              style={styles.retryBtn}
+            >
               <Text style={styles.retryLabel}>Se connecter</Text>
             </Pressable>
           </View>
@@ -237,12 +261,17 @@ export default function ModeCuisineScreen() {
           <View style={styles.center}>
             <ActivityIndicator color={colors.brand} size="large" />
             <Text style={styles.meta}>Kaly Tao prépare les étapes…</Text>
-            <Text style={styles.metaHint}>Ça peut prendre 10–30 s (Gemma / Ollama).</Text>
+            <Text style={styles.metaHint}>
+              Ça peut prendre 10–30 s (Gemma / Ollama).
+            </Text>
           </View>
         ) : error ? (
           <View style={styles.center}>
             <Text style={styles.errorText}>{error}</Text>
-            <Pressable onPress={() => void fetchEtapes()} style={styles.retryBtn}>
+            <Pressable
+              onPress={() => void fetchEtapes()}
+              style={styles.retryBtn}
+            >
               <Text style={styles.retryLabel}>Réessayer</Text>
             </Pressable>
           </View>
@@ -260,25 +289,36 @@ export default function ModeCuisineScreen() {
               </View>
             ) : null}
             {!handsFree ? (
-              <Pressable onPress={() => void enableHandsFree()} style={styles.handsFreeCta}>
+              <Pressable
+                onPress={() => void enableHandsFree()}
+                style={styles.handsFreeCta}
+              >
                 <Text style={styles.handsFreeEmoji}>✋</Text>
-                <Text style={styles.handsFreeCtaLabel}>Activer le mode mains libres</Text>
+                <Text style={styles.handsFreeCtaLabel}>
+                  Activer le mode mains libres
+                </Text>
                 <Text style={styles.handsFreeCtaHint}>
-                  Recouvre la caméra avant (selfie) ~1 seconde pour passer à l’étape suivante
+                  Passe rapidement ta main devant la caméra selfie pour zapper
+                  l’étape suivante (sans toucher l’écran)
                 </Text>
               </Pressable>
             ) : (
               <View style={styles.handsFreeActive}>
-                <Text style={styles.handsFreeEmoji}>✋</Text>
-                <Text style={styles.handsFreeCtaLabel}>Mode mains libres</Text>
+                <Text style={styles.handsFreeEmoji}>✋ →</Text>
+                <Text style={styles.handsFreeCtaLabel}>Zappe avec ta main</Text>
                 <Text style={styles.handsFreeCtaHint}>
                   {cameraReady
-                    ? "Recouvre la caméra avant avec ta main jusqu’à ce que l’écran s’assombrisse"
+                    ? "Passe ta main devant le pastille selfie en haut — un geste court, comme un balayage"
                     : "Préparation de la caméra…"}
                 </Text>
                 {coverProgress > 0 ? (
                   <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: `${Math.round(coverProgress * 100)}%` }]} />
+                    <View
+                      style={[
+                        styles.progressFill,
+                        { width: `${Math.round(coverProgress * 100)}%` },
+                      ]}
+                    />
                   </View>
                 ) : null}
               </View>
@@ -286,23 +326,31 @@ export default function ModeCuisineScreen() {
           </>
         ) : (
           <View style={styles.center}>
-            <Text style={styles.errorText}>Aucune étape disponible pour cette recette.</Text>
-            <Pressable onPress={() => void fetchEtapes()} style={styles.retryBtn}>
+            <Text style={styles.errorText}>
+              Aucune étape disponible pour cette recette.
+            </Text>
+            <Pressable
+              onPress={() => void fetchEtapes()}
+              style={styles.retryBtn}
+            >
               <Text style={styles.retryLabel}>Générer les étapes</Text>
             </Pressable>
           </View>
         )}
       </ScrollView>
 
-      {/* Caméra frontale invisible : sert uniquement de capteur (évite le scintillement). */}
+      {/* Pastille selfie : cible visuelle pour le geste « zappe ». */}
       {handsFree && permission?.granted ? (
-        <View style={styles.cameraSensor} pointerEvents="none">
-          <CameraView
-            ref={cameraRef}
-            style={styles.cameraHidden}
-            facing="front"
-            onCameraReady={() => setCameraReady(true)}
-          />
+        <View style={styles.cameraDock} pointerEvents="none">
+          <View style={[styles.cameraRing, coverProgress > 0.2 && styles.cameraRingActive]}>
+            <CameraView
+              ref={cameraRef}
+              style={styles.cameraPreview}
+              facing="front"
+              onCameraReady={() => setCameraReady(true)}
+            />
+          </View>
+          <Text style={styles.cameraHint}>Passe ta main ici</Text>
         </View>
       ) : null}
 
@@ -313,10 +361,17 @@ export default function ModeCuisineScreen() {
         </Pressable>
       ) : null}
 
-      <View pointerEvents="none" style={[styles.coverOverlay, { opacity: coverProgress }]} />
+      <View
+        pointerEvents="none"
+        style={[styles.coverOverlay, { opacity: coverProgress }]}
+      />
 
       <View style={styles.bottomBar}>
-        <Pressable onPress={() => setTimerOpen(true)} style={styles.iconBtn} hitSlop={8}>
+        <Pressable
+          onPress={() => setTimerOpen(true)}
+          style={styles.iconBtn}
+          hitSlop={8}
+        >
           <Feather name="clock" size={20} color={colors.ink} />
         </Pressable>
         <Pressable
@@ -332,8 +387,14 @@ export default function ModeCuisineScreen() {
           style={styles.nextBtn}
           disabled={!step}
         >
-          <Text style={styles.nextLabel}>{isLast ? "Terminer" : "Étape suivante"}</Text>
-          <Feather name={isLast ? "check" : "chevron-right"} size={20} color="#F7F3EA" />
+          <Text style={styles.nextLabel}>
+            {isLast ? "Terminer" : "Étape suivante"}
+          </Text>
+          <Feather
+            name={isLast ? "check" : "chevron-right"}
+            size={20}
+            color="#F7F3EA"
+          />
         </Pressable>
       </View>
 
@@ -343,14 +404,17 @@ export default function ModeCuisineScreen() {
             <View style={styles.guideIcon}>
               <Text style={styles.guideEmoji}>✋</Text>
             </View>
-            <Text style={styles.guideTitle}>Comment ça marche ?</Text>
+            <Text style={styles.guideTitle}>Zappe avec ta main</Text>
             <Text style={styles.guideBody}>
-              1. La caméra avant (selfie) écoute en arrière-plan.{"\n"}
-              2. Recouvre-la avec ta main pendant environ 1 seconde.{"\n"}
-              3. L’écran s’assombrit → étape suivante.{"\n\n"}
-              Tu peux aussi utiliser le bouton « Étape suivante » en bas.
+              1. Une pastille selfie apparaît en haut de l’écran.{"\n"}
+              2. Passe rapidement ta main devant (geste court, comme un balayage).{"\n"}
+              3. L’étape suivante s’affiche — pas besoin de boucher l’objectif.{"\n\n"}
+              Mains humides OK. Sinon utilise « Étape suivante » en bas.
             </Text>
-            <Pressable onPress={() => setShowGuide(false)} style={styles.guideBtn}>
+            <Pressable
+              onPress={() => setShowGuide(false)}
+              style={styles.guideBtn}
+            >
               <Text style={styles.guideBtnLabel}>Compris</Text>
             </Pressable>
           </View>
@@ -361,9 +425,14 @@ export default function ModeCuisineScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.quitCard}>
             <Text style={styles.quitTitle}>Quitter le mode cuisine ?</Text>
-            <Text style={styles.guideBody}>Ta progression dans les étapes ne sera pas gardée.</Text>
+            <Text style={styles.guideBody}>
+              Ta progression dans les étapes ne sera pas gardée.
+            </Text>
             <View style={styles.quitActions}>
-              <Pressable onPress={() => setShowQuit(false)} style={styles.quitCancelBtn}>
+              <Pressable
+                onPress={() => setShowQuit(false)}
+                style={styles.quitCancelBtn}
+              >
                 <Text style={styles.quitCancelLabel}>Continuer</Text>
               </Pressable>
               <Pressable
@@ -387,7 +456,9 @@ export default function ModeCuisineScreen() {
               <Feather name="check-circle" size={28} color={colors.brand} />
             </View>
             <Text style={styles.guideTitle}>Bravo, c'est prêt !</Text>
-            <Text style={styles.guideBody}>{recette.nom} est cuisiné. Bon appétit !</Text>
+            <Text style={styles.guideBody}>
+              {recette.nom} est cuisiné. Bon appétit !
+            </Text>
             <Pressable onPress={() => void onFinish()} style={styles.guideBtn}>
               <Text style={styles.guideBtnLabel}>Terminer</Text>
             </Pressable>
@@ -402,20 +473,30 @@ export default function ModeCuisineScreen() {
             {timerLeft != null ? (
               <>
                 <Text style={styles.timerDisplay}>{formatMmSs(timerLeft)}</Text>
-                <Pressable onPress={() => setTimerLeft(null)} style={styles.quitConfirmBtn}>
+                <Pressable
+                  onPress={() => setTimerLeft(null)}
+                  style={styles.quitConfirmBtn}
+                >
                   <Text style={styles.quitConfirmLabel}>Arrêter</Text>
                 </Pressable>
               </>
             ) : (
               <View style={styles.timerPresets}>
                 {TIMER_PRESETS_MIN.map((m) => (
-                  <Pressable key={m} onPress={() => startTimer(m)} style={styles.timerPresetBtn}>
+                  <Pressable
+                    key={m}
+                    onPress={() => startTimer(m)}
+                    style={styles.timerPresetBtn}
+                  >
                     <Text style={styles.timerPresetLabel}>{m} min</Text>
                   </Pressable>
                 ))}
               </View>
             )}
-            <Pressable onPress={() => setTimerOpen(false)} style={styles.quitCancelBtn}>
+            <Pressable
+              onPress={() => setTimerOpen(false)}
+              style={styles.quitCancelBtn}
+            >
               <Text style={styles.quitCancelLabel}>Fermer</Text>
             </Pressable>
           </View>
@@ -433,7 +514,12 @@ function formatMmSs(totalSeconds: number): string {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  center: { alignItems: "center", justifyContent: "center", gap: space.sm, paddingVertical: space.xl },
+  center: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+    paddingVertical: space.xl,
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -452,8 +538,18 @@ const styles = StyleSheet.create({
   headerCenter: { flex: 1, alignItems: "center" },
   headerTitle: { fontSize: type.body, fontWeight: "700", color: colors.ink },
   headerStep: { fontSize: type.small, color: colors.muted, fontWeight: "600" },
-  dotsRow: { flexDirection: "row", justifyContent: "center", gap: 6, paddingVertical: space.sm },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "rgba(0,0,0,0.15)" },
+  dotsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: space.sm,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "rgba(0,0,0,0.15)",
+  },
   dotActive: { backgroundColor: colors.brand, width: 20 },
   dotDone: { backgroundColor: colors.brandSoft },
   content: {
@@ -475,7 +571,12 @@ const styles = StyleSheet.create({
     marginTop: space.sm,
     lineHeight: 36,
   },
-  chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: space.lg },
+  chipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: space.lg,
+  },
   chip: {
     backgroundColor: "rgba(255,255,255,0.75)",
     borderRadius: 999,
@@ -486,10 +587,19 @@ const styles = StyleSheet.create({
   },
   chipText: { fontSize: type.body, color: colors.ink, fontWeight: "600" },
   meta: { fontSize: type.body, color: colors.muted, textAlign: "center" },
-  metaHint: { fontSize: type.small, color: colors.muted, textAlign: "center", opacity: 0.8 },
+  metaHint: {
+    fontSize: type.small,
+    color: colors.muted,
+    textAlign: "center",
+    opacity: 0.8,
+  },
   errorText: { fontSize: type.body, color: colors.danger, textAlign: "center" },
   retryBtn: { paddingHorizontal: space.lg, paddingVertical: space.sm },
-  retryLabel: { color: colors.brand, fontWeight: "700", textDecorationLine: "underline" },
+  retryLabel: {
+    color: colors.brand,
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
   handsFreeCta: {
     marginTop: space.xl,
     backgroundColor: "rgba(255,255,255,0.8)",
@@ -511,7 +621,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   handsFreeEmoji: { fontSize: 28 },
-  handsFreeCtaLabel: { fontSize: type.body, fontWeight: "800", color: colors.ink },
+  handsFreeCtaLabel: {
+    fontSize: type.body,
+    fontWeight: "800",
+    color: colors.ink,
+  },
   handsFreeCtaHint: {
     fontSize: type.small,
     color: colors.muted,
@@ -526,17 +640,41 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.08)",
     overflow: "hidden",
   },
-  progressFill: { height: "100%", backgroundColor: colors.brand, borderRadius: 3 },
-  cameraSensor: {
-    position: "absolute",
-    width: 1,
-    height: 1,
-    opacity: 0.01,
-    overflow: "hidden",
-    left: 0,
-    bottom: 0,
+  progressFill: {
+    height: "100%",
+    backgroundColor: colors.brand,
+    borderRadius: 3,
   },
-  cameraHidden: { width: 48, height: 48 },
+  cameraDock: {
+    position: "absolute",
+    top: 56,
+    alignSelf: "center",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    gap: 6,
+  },
+  cameraRing: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    overflow: "hidden",
+    borderWidth: 3,
+    borderColor: colors.brand,
+    backgroundColor: "#111",
+  },
+  cameraRingActive: { borderColor: colors.ok, transform: [{ scale: 1.06 }] },
+  cameraPreview: { width: 64, height: 64 },
+  cameraHint: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.ink,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
   timerBadge: {
     position: "absolute",
     left: space.lg,
@@ -609,8 +747,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   guideEmoji: { fontSize: 28 },
-  guideTitle: { fontSize: type.title, fontWeight: "800", color: colors.ink, textAlign: "center" },
-  guideBody: { fontSize: type.body, color: colors.muted, textAlign: "center", lineHeight: 20 },
+  guideTitle: {
+    fontSize: type.title,
+    fontWeight: "800",
+    color: colors.ink,
+    textAlign: "center",
+  },
+  guideBody: {
+    fontSize: type.body,
+    color: colors.muted,
+    textAlign: "center",
+    lineHeight: 20,
+  },
   guideBtn: {
     marginTop: space.sm,
     width: "100%",
@@ -629,7 +777,12 @@ const styles = StyleSheet.create({
     padding: space.lg,
     gap: space.sm,
   },
-  quitTitle: { fontSize: type.title, fontWeight: "800", color: colors.ink, textAlign: "center" },
+  quitTitle: {
+    fontSize: type.title,
+    fontWeight: "800",
+    color: colors.ink,
+    textAlign: "center",
+  },
   quitActions: { flexDirection: "row", gap: space.sm, marginTop: space.sm },
   quitCancelBtn: {
     flex: 1,
@@ -640,7 +793,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  quitCancelLabel: { fontSize: type.body, fontWeight: "700", color: colors.ink },
+  quitCancelLabel: {
+    fontSize: type.body,
+    fontWeight: "700",
+    color: colors.ink,
+  },
   quitConfirmBtn: {
     flex: 1,
     minHeight: 50,
@@ -649,7 +806,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  quitConfirmLabel: { fontSize: type.body, fontWeight: "700", color: "#F7F3EA" },
+  quitConfirmLabel: {
+    fontSize: type.body,
+    fontWeight: "700",
+    color: "#F7F3EA",
+  },
   timerCard: {
     width: "100%",
     maxWidth: 340,
@@ -664,12 +825,21 @@ const styles = StyleSheet.create({
     color: colors.ink,
     textAlign: "center",
   },
-  timerPresets: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, justifyContent: "center" },
+  timerPresets: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: space.sm,
+    justifyContent: "center",
+  },
   timerPresetBtn: {
     paddingHorizontal: space.lg,
     paddingVertical: space.md,
     borderRadius: 999,
     backgroundColor: colors.brandSoft,
   },
-  timerPresetLabel: { fontSize: type.body, fontWeight: "700", color: colors.brand },
+  timerPresetLabel: {
+    fontSize: type.body,
+    fontWeight: "700",
+    color: colors.brand,
+  },
 });
