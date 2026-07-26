@@ -36,3 +36,9 @@ def test_seed_idempotent(db_session):
 
     niveaux = {it.niveau_securite for it in db_session.query(Itineraire).all()}
     assert niveaux == {"sur", "prudence", "a_eviter"}
+
+    riz = db_session.query(Ingredient).filter_by(nom="riz").one()
+    assert riz.categorie == "féculent"
+    assert riz.conservation_jours == 365
+    assert riz.saison == ["toute_saison"]
+    assert riz.prix_moyen_reference == 2500.0

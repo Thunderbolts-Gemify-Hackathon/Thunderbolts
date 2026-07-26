@@ -28,6 +28,12 @@ _COLONNES = {
     "budgets": [
         ("devise", "VARCHAR(10) DEFAULT 'Ar'"),
     ],
+    "ingredients": [
+        ("categorie", "VARCHAR(30) DEFAULT 'autre'"),
+        ("conservation_jours", "INTEGER"),
+        ("saison", "JSON"),
+        ("prix_moyen_reference", "FLOAT"),
+    ],
 }
 
 
@@ -69,5 +75,19 @@ def migrate_sqlite(engine: Engine) -> None:
                 text(
                     "UPDATE preferences SET aliments_aimes = '[]' "
                     "WHERE aliments_aimes IS NULL"
+                )
+            )
+
+        if "ingredients" in tables:
+            conn.execute(
+                text(
+                    "UPDATE ingredients SET categorie = 'autre' "
+                    "WHERE categorie IS NULL OR categorie = ''"
+                )
+            )
+            conn.execute(
+                text(
+                    "UPDATE ingredients SET saison = '[\"toute_saison\"]' "
+                    "WHERE saison IS NULL"
                 )
             )
