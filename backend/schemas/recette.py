@@ -24,6 +24,7 @@ class RecetteOut(BaseModel):
     proteines: float
     glucides: float
     lipides: float
+    duree_minutes: Optional[int] = None
     tags: list[str]
     instructions: Optional[str] = None
     ingredients: list[RecetteIngredientOut] = Field(default_factory=list)

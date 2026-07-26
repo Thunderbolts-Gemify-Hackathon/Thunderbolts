@@ -146,6 +146,14 @@ def update_stock(
     )
 
 
+def remove_ingredient_stock(db: Session, profil_id: str, ingredient_id: str) -> None:
+    ligne = _get_ingredient_stock(db, profil_id, ingredient_id)
+    stock = ligne.stock
+    db.delete(ligne)
+    stock.derniere_mise_a_jour = datetime.now(timezone.utc).replace(tzinfo=None)
+    db.commit()
+
+
 def recrediter_stock(
     db: Session,
     profil_id: str,

@@ -53,6 +53,15 @@ def deduire_stock(
     )
 
 
+@router.delete("/{profil_id}/ingredients/{ingredient_id}", status_code=204)
+def remove_ingredient(
+    ingredient_id: str,
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    stock_service.remove_ingredient_stock(db, profil.id, ingredient_id)
+
+
 @router.get("/{profil_id}/detail", response_model=StockOut)
 def get_stock_detail(
     profil: Profil = Depends(require_profil_owner),

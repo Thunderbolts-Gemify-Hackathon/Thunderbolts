@@ -11,18 +11,57 @@ import {
 
 import { ApiError } from "@/api/http";
 import {
+  createIngredient,
+  deleteStockLine,
   getStock,
   listIngredients,
   nameById,
   upsertStockLine,
   type Ingredient,
   type StockLine,
+  type Unite,
 } from "@/api/stock";
 import { useSession } from "@/session/SessionContext";
 import { Button } from "@/ui/Button";
 import { Screen } from "@/ui/Screen";
 import { Body, Title } from "@/ui/Typography";
 import { colors, radius, space, type } from "@/theme";
+
+type UnitGroupKey = "poids" | "liquides" | "unites" | "autre";
+
+const UNIT_GROUPS: { key: UnitGroupKey; label: string; units: string[] }[] = [
+  { key: "poids", label: "Poids (kg)", units: ["g", "kg"] },
+  { key: "liquides", label: "Liquides (L)", units: ["ml", "l"] },
+  { key: "unites", label: "A la piece", units: ["unite"] },
+];
+
+const UNITE_OPTIONS: { value: Unite; label: string }[] = [
+  { value: "g", label: "g" },
+  { value: "kg", label: "kg" },
+  { value: "ml", label: "ml" },
+  { value: "l", label: "L" },
+  { value: "unite", label: "unite" },
+];
+
+function groupOf(unite: string): UnitGroupKey {
+  const found = UNIT_GROUPS.find((g) => g.units.includes(unite));
+  return found?.key ?? "autre";
+}
+
+function formatQuantity(qty: number, unite: string): string {
+  const rounded = (n: number) => Math.round(n * 100) / 100;
+  if (unite === "g" && qty >= 1000) return `${rounded(qty / 1000)} kg`;
+  if (unite === "ml" && qty >= 1000) return `${rounded(qty / 1000)} L`;
+  if (unite === "l") return `${rounded(qty)} L`;
+  if (unite === "unite") return `${rounded(qty)} ${qty > 1 ? "unites" : "unite"}`;
+  return `${rounded(qty)} ${unite}`;
+}
+
+function daysUntil(dateIso: string | null): number | null {
+  if (!dateIso) return null;
+  const diffMs = new Date(dateIso).getTime() - new Date().setHours(0, 0, 0, 0);
+  return Math.ceil(diffMs / 86_400_000);
+}
 
 export default function StockScreen() {
   const router = useRouter();
@@ -34,9 +73,16 @@ export default function StockScreen() {
   const [lines, setLines] = useState<StockLine[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [qty, setQty] = useState("200");
+  const [expiry, setExpiry] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [showNewProduct, setShowNewProduct] = useState(false);
+  const [newNom, setNewNom] = useState("");
+  const [newUnite, setNewUnite] = useState<Unite>("g");
+  const [creatingProduct, setCreatingProduct] = useState(false);
 
   const byId = useMemo(() => nameById(catalog), [catalog]);
   const selected = selectedId ? byId[selectedId] : undefined;
@@ -72,7 +118,7 @@ export default function StockScreen() {
     if (!profilId || !token || !selected) return;
     const quantite = Number(qty);
     if (!Number.isFinite(quantite) || quantite < 0) {
-      setError("Quantité invalide.");
+      setError("Quantite invalide.");
       return;
     }
     setSaving(true);
@@ -83,10 +129,12 @@ export default function StockScreen() {
         {
           ingredient_id: selected.id,
           quantite_disponible: quantite,
-          unite: selected.unite_defaut,
+          unite: selected.unite_defaut as Unite,
+          date_peremption: expiry.trim() || null,
         },
         token
       );
+      setExpiry("");
       const stock = await getStock(profilId, token);
       setLines(stock);
     } catch (e) {
@@ -95,6 +143,49 @@ export default function StockScreen() {
       setSaving(false);
     }
   };
+
+  const remove = async (ingredientId: string) => {
+    if (!profilId || !token) return;
+    setRemovingId(ingredientId);
+    setError(null);
+    try {
+      await deleteStockLine(profilId, ingredientId, token);
+      setLines((prev) => prev.filter((l) => l.ingredient_id !== ingredientId));
+    } catch (e) {
+      setError(e instanceof ApiError ? e.detail : "Suppression impossible");
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  const createProduct = async () => {
+    if (!token || !newNom.trim()) return;
+    setCreatingProduct(true);
+    setError(null);
+    try {
+      const created = await createIngredient(
+        { nom: newNom.trim(), unite_defaut: newUnite },
+        token
+      );
+      setCatalog((prev) => [...prev, created].sort((a, b) => a.nom.localeCompare(b.nom)));
+      setSelectedId(created.id);
+      setNewNom("");
+      setShowNewProduct(false);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.detail : "Creation du produit impossible");
+    } finally {
+      setCreatingProduct(false);
+    }
+  };
+
+  const groupedLines = useMemo(() => {
+    const groups = new Map<UnitGroupKey, StockLine[]>();
+    for (const line of lines) {
+      const key = groupOf(line.unite);
+      groups.set(key, [...(groups.get(key) ?? []), line]);
+    }
+    return groups;
+  }, [lines]);
 
   return (
     <Screen
@@ -115,7 +206,7 @@ export default function StockScreen() {
       {loading ? <ActivityIndicator color={colors.brand} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Text style={styles.section}>Ingrédient</Text>
+      <Text style={styles.section}>Produit</Text>
       <View style={styles.chips}>
         {catalog.map((ing) => {
           const active = ing.id === selectedId;
@@ -126,15 +217,57 @@ export default function StockScreen() {
               style={[styles.chip, active && styles.chipActive]}
             >
               <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                {ing.nom}
+                {ing.nom} · {ing.unite_defaut}
               </Text>
             </Pressable>
           );
         })}
+        <Pressable
+          onPress={() => setShowNewProduct((v) => !v)}
+          style={[styles.chip, styles.chipDashed]}
+        >
+          <Text style={styles.chipText}>
+            {showNewProduct ? "Annuler" : "+ Nouveau produit"}
+          </Text>
+        </Pressable>
       </View>
 
+      {showNewProduct ? (
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>Nouveau produit</Text>
+          <TextInput
+            value={newNom}
+            onChangeText={setNewNom}
+            placeholder="Nom du produit"
+            placeholderTextColor={colors.muted}
+            style={styles.input}
+          />
+          <View style={styles.chips}>
+            {UNITE_OPTIONS.map((opt) => {
+              const active = opt.value === newUnite;
+              return (
+                <Pressable
+                  key={opt.value}
+                  onPress={() => setNewUnite(opt.value)}
+                  style={[styles.chip, active && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Button
+            label={creatingProduct ? "Creation…" : "Creer le produit"}
+            onPress={() => void createProduct()}
+            disabled={creatingProduct || !newNom.trim()}
+          />
+        </View>
+      ) : null}
+
       <Text style={styles.section}>
-        Quantité {selected ? `(${selected.unite_defaut})` : ""}
+        Quantite {selected ? `(${selected.unite_defaut})` : ""}
       </Text>
       <TextInput
         value={qty}
@@ -145,18 +278,69 @@ export default function StockScreen() {
         placeholderTextColor={colors.muted}
       />
 
+      <Text style={styles.section}>Date de peremption (optionnel)</Text>
+      <TextInput
+        value={expiry}
+        onChangeText={setExpiry}
+        style={styles.input}
+        placeholder="AAAA-MM-JJ"
+        placeholderTextColor={colors.muted}
+      />
+
       <Text style={styles.section}>En cuisine maintenant</Text>
       {lines.length === 0 ? (
-        <Body>Aucun ingrédient enregistré.</Body>
+        <Body>Aucun ingredient enregistre.</Body>
       ) : (
-        lines.map((line) => {
-          const ing = byId[line.ingredient_id];
+        UNIT_GROUPS.map((group) => {
+          const groupLines = groupedLines.get(group.key);
+          if (!groupLines || groupLines.length === 0) return null;
           return (
-            <View key={line.id} style={styles.row}>
-              <Text style={styles.rowName}>{ing?.nom ?? line.ingredient_id}</Text>
-              <Text style={styles.rowQty}>
-                {line.quantite_disponible} {line.unite}
-              </Text>
+            <View key={group.key} style={styles.group}>
+              <Text style={styles.groupLabel}>{group.label}</Text>
+              {groupLines.map((line) => {
+                const ing = byId[line.ingredient_id];
+                const jours = daysUntil(line.date_peremption);
+                const tone =
+                  jours !== null && jours <= 3
+                    ? "danger"
+                    : jours !== null && jours <= 7
+                      ? "warn"
+                      : null;
+                return (
+                  <View key={line.id} style={styles.row}>
+                    <View style={styles.rowMain}>
+                      <Text style={styles.rowName}>{ing?.nom ?? line.ingredient_id}</Text>
+                      {jours !== null ? (
+                        <Text
+                          style={[
+                            styles.badge,
+                            tone === "danger" && styles.badgeDanger,
+                            tone === "warn" && styles.badgeWarn,
+                          ]}
+                        >
+                          {jours < 0
+                            ? "perime"
+                            : jours === 0
+                              ? "perime aujourd'hui"
+                              : `perime dans ${jours} j`}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.rowQty}>
+                      {formatQuantity(line.quantite_disponible, line.unite)}
+                    </Text>
+                    <Pressable
+                      onPress={() => void remove(line.ingredient_id)}
+                      disabled={removingId === line.ingredient_id}
+                      style={styles.removeBtn}
+                    >
+                      <Text style={styles.removeLabel}>
+                        {removingId === line.ingredient_id ? "…" : "Retirer"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
             </View>
           );
         })
@@ -184,6 +368,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
   },
+  chipDashed: { borderStyle: "dashed" },
   chipActive: { backgroundColor: colors.brand, borderColor: colors.brand },
   chipText: { color: colors.ink, fontSize: type.body },
   chipTextActive: { color: "#F7F3EA", fontWeight: "600" },
@@ -197,15 +382,54 @@ const styles = StyleSheet.create({
     fontSize: type.body,
     color: colors.ink,
   },
+  card: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    padding: space.md,
+    gap: space.sm,
+  },
+  cardLabel: {
+    fontSize: type.label,
+    fontWeight: "700",
+    color: colors.muted,
+    textTransform: "uppercase",
+  },
+  group: { gap: 4, marginTop: space.xs },
+  groupLabel: {
+    fontSize: type.small,
+    fontWeight: "700",
+    color: colors.brand,
+    marginTop: space.sm,
+  },
   row: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: space.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.line,
+    gap: space.sm,
   },
+  rowMain: { flex: 1, gap: 2 },
   rowName: { fontSize: type.body, color: colors.ink, fontWeight: "600" },
   rowQty: { fontSize: type.body, color: colors.muted },
+  badge: {
+    alignSelf: "flex-start",
+    fontSize: type.small,
+    color: colors.muted,
+  },
+  badgeWarn: { color: colors.accent },
+  badgeDanger: { color: colors.danger, fontWeight: "700" },
+  removeBtn: {
+    paddingHorizontal: space.sm,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  removeLabel: { color: colors.danger, fontSize: type.small, fontWeight: "600" },
   error: {
     color: colors.danger,
     backgroundColor: "#F8E8E4",

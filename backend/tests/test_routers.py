@@ -74,6 +74,49 @@ def test_stock_upsert_via_api(client, db_session):
     assert r.json()["quantite_disponible"] == 800.0
 
 
+def test_ingredient_create_via_api(client, db_session):
+    utilisateur, _, _, _, _ = seed_router_demo(db_session)
+    headers = auth_headers(utilisateur)
+
+    r = client.post(
+        "/ingredients",
+        headers=headers,
+        json={"nom": "Lait", "unite_defaut": "l", "categorie": "autre"},
+    )
+    assert r.status_code == 201
+    body = r.json()
+    assert body["nom"] == "lait"
+    assert body["unite_defaut"] == "l"
+
+    r = client.post(
+        "/ingredients",
+        headers=headers,
+        json={"nom": "lait", "unite_defaut": "l"},
+    )
+    assert r.status_code == 409
+
+    r = client.post(
+        "/ingredients",
+        headers=headers,
+        json={"nom": "oeufs", "unite_defaut": "pas-une-unite"},
+    )
+    assert r.status_code == 422
+
+
+def test_stock_delete_via_api(client, db_session):
+    utilisateur, profil, riz, _, _ = seed_router_demo(db_session)
+    headers = auth_headers(utilisateur)
+
+    r = client.delete(f"/stock/{profil.id}/ingredients/{riz.id}", headers=headers)
+    assert r.status_code == 204
+
+    r = client.get(f"/stock/{profil.id}", headers=headers)
+    assert r.json() == []
+
+    r = client.delete(f"/stock/{profil.id}/ingredients/{riz.id}", headers=headers)
+    assert r.status_code == 404
+
+
 def test_directive_courses(client, db_session):
     utilisateur, profil, riz, _, _ = seed_router_demo(db_session)
     headers = auth_headers(utilisateur)

@@ -18,9 +18,11 @@ from backend.schemas.gemma import (
     DirectiveCoursesRequest,
     DirectiveCoursesResponse,
     RemedeResponse,
+    SuggestionRepasRequest,
+    SuggestionRepasResponse,
 )
 from backend.schemas.planning import PeriodePlanning, PlanningOut
-from backend.services import onboarding_suite, planning_generation_service
+from backend.services import onboarding_suite, planning_generation_service, repas_suggestion_service
 from backend.services.directive_courses_service import build_directive_courses
 from backend.services.gemma_agent import run_tool_loop
 from backend.services.gemma_client import GemmaClient
@@ -87,6 +89,23 @@ def directive_courses(
         ingredient_nom=payload.ingredient_nom,
         rayon_km=payload.rayon_km,
     )
+
+
+@router.post("/{profil_id}/suggestion-repas", response_model=SuggestionRepasResponse)
+def suggestion_repas(
+    payload: SuggestionRepasRequest,
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    """"Je veux manger quelque chose" : choix parmi les recettes du creneau, favorisant
+    le stock actuel. Le choix final vient toujours des candidats calcules, jamais de Gemma seul."""
+    try:
+        resultat = repas_suggestion_service.suggerer_repas(
+            db, profil.id, payload.type_repas, payload.duree_max_minutes
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return resultat
 
 
 @router.post("/{profil_id}/suggestion-remede", response_model=RemedeResponse)

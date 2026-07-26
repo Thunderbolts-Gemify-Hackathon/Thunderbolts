@@ -3,11 +3,13 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from backend.schemas.ingredient import Unite
+
 
 class IngredientStockUpsert(BaseModel):
     ingredient_id: str
     quantite_disponible: float = Field(ge=0)
-    unite: str = Field(min_length=1, max_length=10)
+    unite: Unite
     date_peremption: Optional[date] = None
 
 
