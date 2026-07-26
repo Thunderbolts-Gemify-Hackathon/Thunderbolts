@@ -167,6 +167,12 @@ export default function ChatScreen() {
               <Text style={styles.chipText}>Stop voix</Text>
             </Pressable>
             <Pressable
+              style={[styles.chip, styles.chipVoice]}
+              onPress={() => router.push("/assistant-vocal" as Href)}
+            >
+              <Text style={[styles.chipText, styles.chipVoiceText]}>Mode vocal</Text>
+            </Pressable>
+            <Pressable
               style={styles.chip}
               onPress={() => void onDirective("poulet")}
               disabled={busy}
@@ -279,7 +285,9 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm,
   },
   chipActive: { backgroundColor: colors.brandSoft, borderColor: colors.brand },
+  chipVoice: { backgroundColor: colors.brand, borderColor: colors.brand },
   chipText: { color: colors.ink, fontSize: type.small, fontWeight: "600" },
+  chipVoiceText: { color: "#F7F3EA" },
   bubble: {
     borderRadius: radius.md,
     padding: space.md,

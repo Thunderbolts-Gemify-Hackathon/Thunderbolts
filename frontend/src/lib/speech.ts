@@ -14,6 +14,26 @@ export function stopSpeaking() {
 }
 
 /**
+ * Variante suivie : callbacks de début/fin utiles pour animer une UI vocale
+ * (ex. orbe qui pulse pendant que l'assistant parle) sans deviner une durée.
+ */
+export function speakTracked(
+  text: string,
+  { onStart, onDone }: { onStart?: () => void; onDone?: () => void },
+  lang = "fr-FR"
+) {
+  Speech.stop();
+  Speech.speak(text, {
+    language: lang,
+    rate: 0.95,
+    onStart,
+    onDone,
+    onStopped: onDone,
+    onError: onDone,
+  });
+}
+
+/**
  * STT appareil :
  * - web : Web Speech API
  * - natif Expo Go : le micro du clavier système (appelant focus l'input)

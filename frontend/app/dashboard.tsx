@@ -196,6 +196,13 @@ export default function DashboardScreen() {
           tint={colors.ok}
           onPress={() => router.push("/chat" as Href)}
         />
+        <ActionCard
+          icon="mic-outline"
+          title="Assistant vocal"
+          subtitle="Parle-lui directement"
+          tint={colors.accent}
+          onPress={() => router.push("/assistant-vocal" as Href)}
+        />
       </ScrollView>
 
       <Text style={styles.sectionTitle}>Vue d&apos;ensemble</Text>

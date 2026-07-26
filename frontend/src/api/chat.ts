@@ -32,12 +32,13 @@ export function postChat(
   profilId: string,
   token: string,
   message: string,
-  historique: ChatMessage[] = []
+  historique: ChatMessage[] = [],
+  voice = false
 ) {
   return api<ChatResponse>(`/ia/${profilId}/chat`, {
     method: "POST",
     token,
-    body: { message, historique },
+    body: { message, historique, voice },
   });
 }
 
