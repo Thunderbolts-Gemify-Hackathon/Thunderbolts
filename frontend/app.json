@@ -1,0 +1,63 @@
+{
+  "expo": {
+    "name": "Kaly Tao",
+    "slug": "kalitao-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "kalitao",
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true,
+          "NSAllowsArbitraryLoads": true
+        }
+      }
+    },
+    "android": {
+      "usesCleartextTraffic": true,
+      "adaptiveIcon": {
+        "backgroundColor": "#1F3D2B",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F3EFE6",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "resizeMode": "contain"
+        }
+      ],
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Kaly Tao utilise ta position pour trouver les marchés les plus proches de chez toi."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Kaly Tao utilise la caméra pour passer les étapes de recette sans toucher l'écran (mode cuisine mains libres)."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    }
+  }
+}

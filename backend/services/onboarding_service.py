@@ -1,9 +1,12 @@
+from datetime import date
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from backend.models.foyer import Foyer, MembreFoyer
 from backend.models.preferences import Preferences
 from backend.models.profil import Profil
+from backend.models.utilisateur import Utilisateur
 from backend.schemas.foyer import FoyerCreate
 from backend.schemas.preferences import PreferencesCreate
 from backend.schemas.profil import ProfilCreate, ProfilOut
@@ -17,8 +20,36 @@ def _profil_or_404(db: Session, profil_id: str) -> Profil:
     return profil
 
 
+def _age_depuis_naissance(date_naissance: date) -> int:
+    today = date.today()
+    return today.year - date_naissance.year - (
+        (today.month, today.day) < (date_naissance.month, date_naissance.day)
+    )
+
+
 def create_profil(db: Session, data: ProfilCreate) -> Profil:
-    profil = Profil(**data.model_dump())
+    utilisateur = db.get(Utilisateur, data.utilisateur_id)
+    if not utilisateur:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+    if db.query(Profil).filter(Profil.utilisateur_id == data.utilisateur_id).first():
+        raise HTTPException(
+            status_code=409, detail="Un profil existe déjà pour cet utilisateur"
+        )
+
+    age = data.age if data.age is not None else _age_depuis_naissance(utilisateur.date_naissance)
+    if age < 1 or age > 120:
+        raise HTTPException(status_code=400, detail="Âge calculé invalide")
+
+    profil = Profil(
+        utilisateur_id=data.utilisateur_id,
+        age=age,
+        sexe=data.sexe,
+        poids=data.poids,
+        taille=data.taille,
+        niveau_activite=data.niveau_activite,
+        objectif=data.objectif,
+        condition_sante=data.condition_sante,
+    )
     db.add(profil)
     db.commit()
     db.refresh(profil)
@@ -42,6 +73,13 @@ def create_foyer(db: Session, profil_id: str, data: FoyerCreate) -> Foyer:
     _profil_or_404(db, profil_id)
     if db.query(Foyer).filter(Foyer.profil_id == profil_id).first():
         raise HTTPException(status_code=409, detail="Un foyer existe déjà pour ce profil")
+
+    # Le profil principal n'est pas dans membres → total >= membres + 1
+    if data.nombre_personnes < len(data.membres) + 1:
+        raise HTTPException(
+            status_code=400,
+            detail="nombre_personnes doit être >= nombre de membres + 1 (profil principal)",
+        )
 
     foyer = Foyer(profil_id=profil_id, nombre_personnes=data.nombre_personnes)
     db.add(foyer)

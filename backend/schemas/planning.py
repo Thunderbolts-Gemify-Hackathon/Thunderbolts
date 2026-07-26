@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from backend.schemas.recette import RecetteOut
 
-PeriodePlanning = Literal["semaine", "mois"]
+PeriodePlanning = Literal["jour", "semaine", "mois"]
 
 
 class RepasPlanifieOut(BaseModel):

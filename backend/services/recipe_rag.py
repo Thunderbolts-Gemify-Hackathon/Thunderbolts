@@ -36,7 +36,9 @@ def _serialize_recette(recette: Recette) -> dict[str, Any]:
         "proteines": recette.proteines,
         "glucides": recette.glucides,
         "lipides": recette.lipides,
+        "duree_minutes": recette.duree_minutes,
         "tags": list(recette.tags or []),
+        "instructions": recette.instructions,
         "ingredients": [
             {
                 "ingredient_id": ligne.ingredient_id,
@@ -75,14 +77,22 @@ def filtrer_recettes_compatibles(
     preferences: dict[str, Any],
     foyer: dict[str, Any],
 ) -> list[dict[str, Any]]:
-    """Exclut les recettes contenant un ingrédient interdit, puis priorise le tag lié à
-    l'objectif du profil (ex : perte_poids -> tag "leger" en tête de liste)."""
+    """Exclut les interdits, puis trie : tag objectif, puis overlap aliments_aimes."""
     interdits = _ingredients_interdits(preferences, foyer)
     compatibles = [r for r in recettes if not (_noms_ingredients(r) & interdits)]
 
     tag_prioritaire = OBJECTIF_TAG_PRIORITAIRE.get(preferences.get("objectif") or "")
-    if tag_prioritaire:
-        compatibles.sort(key=lambda r: tag_prioritaire not in r["tags"])
+    aimes = {nom.lower() for nom in (preferences.get("aliments_aimes") or [])}
+
+    def _score(recette: dict[str, Any]) -> tuple[int, int]:
+        # 0 = prioritaire (en tête), puis plus d'aliments aimés = mieux
+        objectif_rank = 0
+        if tag_prioritaire:
+            objectif_rank = 0 if tag_prioritaire in recette["tags"] else 1
+        overlap_aimes = len(_noms_ingredients(recette) & aimes)
+        return (objectif_rank, -overlap_aimes)
+
+    compatibles.sort(key=_score)
     return compatibles
 
 

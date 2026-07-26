@@ -2,7 +2,7 @@ import uuid
 from datetime import time
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import JSON, Float, ForeignKey, String, Time
+from sqlalchemy import JSON, Float, ForeignKey, Integer, String, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.database import Base
@@ -22,7 +22,9 @@ class Recette(Base):
     proteines: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     glucides: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     lipides: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    duree_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     tags: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    instructions: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
 
     ingredients: Mapped[list["RecetteIngredient"]] = relationship(
         back_populates="recette", cascade="all, delete-orphan"

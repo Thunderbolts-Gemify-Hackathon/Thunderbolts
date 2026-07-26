@@ -19,27 +19,27 @@ async def run_flow() -> dict:
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as client:
-        profil_id = await complete_onboarding(client)
+        profil_id, headers = await complete_onboarding(client)
         results["profil_id"] = profil_id
-        await assert_planning_empty(client, profil_id)
+        await assert_planning_empty(client, profil_id, headers)
 
         ids = prepare_demo_repas(profil_id)
         results.update(ids)
 
-        r = await client.get(f"/stock/{profil_id}")
+        r = await client.get(f"/stock/{profil_id}", headers=headers)
         r.raise_for_status()
         avant = {x["ingredient_id"]: x["quantite_disponible"] for x in r.json()}
 
-        r = await client.post(f"/planning/{ids['repas_id']}/valider")
+        r = await client.post(f"/planning/{ids['repas_id']}/valider", headers=headers)
         r.raise_for_status()
         assert r.json()["statut"] == "consomme"
 
-        r = await client.get(f"/stock/{profil_id}")
+        r = await client.get(f"/stock/{profil_id}", headers=headers)
         r.raise_for_status()
         apres = {x["ingredient_id"]: x["quantite_disponible"] for x in r.json()}
         assert apres[ids["riz_id"]] < avant[ids["riz_id"]]
 
-        r = await client.get(f"/planning/{ids['planning_id']}/courses")
+        r = await client.get(f"/planning/{ids['planning_id']}/courses", headers=headers)
         r.raise_for_status()
         results["courses_statuts"] = {i["ingredient"]["nom"]: i["statut"] for i in r.json()}
         assert "bredes mafana" in results["courses_statuts"]

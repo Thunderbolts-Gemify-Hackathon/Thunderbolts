@@ -51,3 +51,51 @@ def test_liste_courses_statuts(db_session):
     by_nom = {item.ingredient.nom: item for item in courses_service.get_liste_courses(db_session, planning.id)}
     assert by_nom["riz"].statut == "à acheter"
     assert by_nom["poulet"].statut == "disponible"
+
+
+def test_liste_courses_convertit_kg_en_g(db_session):
+    """1 kg de riz en stock doit couvrir 150 g de recette (plus de faux « à acheter »)."""
+    profil, riz, poulet, planning, _ = _setup(db_session, qte_riz=1.0, qte_poulet=200.0)
+    from backend.models.stock import IngredientStock, Stock
+
+    stock = db_session.query(Stock).filter(Stock.profil_id == profil.id).one()
+    ligne_riz = (
+        db_session.query(IngredientStock)
+        .filter(IngredientStock.stock_id == stock.id, IngredientStock.ingredient_id == riz.id)
+        .one()
+    )
+    ligne_riz.quantite_disponible = 1.0
+    ligne_riz.unite = "kg"
+    db_session.commit()
+
+    by_nom = {
+        item.ingredient.nom: item
+        for item in courses_service.get_liste_courses(db_session, planning.id)
+    }
+    assert by_nom["riz"].statut == "disponible"
+    assert by_nom["riz"].stock_disponible == 1000.0
+
+
+def test_valider_repas_deduit_stock_en_kg(db_session):
+    profil, riz, poulet, _, repas = _setup(db_session, qte_riz=1.0, qte_poulet=200.0)
+    from backend.models.stock import IngredientStock, Stock
+
+    stock = db_session.query(Stock).filter(Stock.profil_id == profil.id).one()
+    ligne_riz = (
+        db_session.query(IngredientStock)
+        .filter(IngredientStock.stock_id == stock.id, IngredientStock.ingredient_id == riz.id)
+        .one()
+    )
+    ligne_riz.quantite_disponible = 1.0
+    ligne_riz.unite = "kg"
+    db_session.commit()
+
+    planning_service.valider_repas(db_session, repas.id)
+    stocks = {
+        s.ingredient_id: (s.quantite_disponible, s.unite)
+        for s in stock_service.get_stock_profil(db_session, profil.id)
+    }
+    # 1 kg - 150 g = 0.85 kg
+    assert stocks[riz.id][1] == "kg"
+    assert abs(stocks[riz.id][0] - 0.85) < 1e-6
+    assert stocks[poulet.id][0] == 80.0

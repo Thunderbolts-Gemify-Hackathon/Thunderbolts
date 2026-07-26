@@ -106,8 +106,13 @@ def valider_repas(db: Session, repas_planifie_id: str) -> RepasPlanifie:
         raise HTTPException(status_code=400, detail="Impossible de valider un repas annulé")
 
     for ligne in repas.recette.ingredients:
-        stock_service.update_stock(
-            db, repas.planning.profil_id, ligne.ingredient_id, ligne.poids_requis, commit=False
+        stock_service.deduire_pour_recette(
+            db,
+            repas.planning.profil_id,
+            ligne.ingredient_id,
+            float(ligne.poids_requis),
+            ligne.unite,
+            commit=False,
         )
     repas.statut = "consomme"
     db.commit()
@@ -123,8 +128,13 @@ def annuler_validation(db: Session, repas_planifie_id: str) -> RepasPlanifie:
         )
 
     for ligne in repas.recette.ingredients:
-        stock_service.recrediter_stock(
-            db, repas.planning.profil_id, ligne.ingredient_id, ligne.poids_requis, commit=False
+        stock_service.recrediter_pour_recette(
+            db,
+            repas.planning.profil_id,
+            ligne.ingredient_id,
+            float(ligne.poids_requis),
+            ligne.unite,
+            commit=False,
         )
     repas.statut = "planifie"
     db.commit()

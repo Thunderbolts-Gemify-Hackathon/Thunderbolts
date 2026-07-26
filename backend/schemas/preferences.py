@@ -13,6 +13,7 @@ class PreferencesCreate(BaseModel):
     allergies: list[str] = Field(default_factory=list)
     severite_allergie: Optional[SeveriteAllergie] = None
     regime_specifique: Optional[RegimeSpecifique] = None
+    aliments_aimes: list[str] = Field(default_factory=list)
     aliments_detestes: list[str] = Field(default_factory=list)
 
 
@@ -25,4 +26,5 @@ class PreferencesOut(BaseModel):
     allergies: list[str]
     severite_allergie: Optional[str] = None
     regime_specifique: Optional[str] = None
+    aliments_aimes: list[str] = Field(default_factory=list)
     aliments_detestes: list[str]

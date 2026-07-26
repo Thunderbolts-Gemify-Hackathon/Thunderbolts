@@ -19,6 +19,7 @@ def run_tool_loop(
     client: GemmaClient,
     messages: list[dict[str, Any]],
     *,
+    profil_id: str,
     tools: list[dict[str, Any]] | None = None,
     max_iterations: int = MAX_TOOL_ITERATIONS,
     trace: list[dict[str, Any]] | None = None,
@@ -35,10 +36,19 @@ def run_tool_loop(
         if not tool_calls:
             return message.get("content") or ""
 
-        messages.append({"role": "assistant", "content": message.get("content") or ""})
+        messages.append(
+            {
+                "role": "assistant",
+                "content": message.get("content") or "",
+                "tool_calls": [
+                    {"function": {"name": tc["name"], "arguments": tc.get("arguments") or {}}}
+                    for tc in tool_calls
+                ],
+            }
+        )
         for tool_call in tool_calls:
             arguments = tool_call.get("arguments") or {}
-            resultat = execute_tool_call(db, tool_call["name"], arguments)
+            resultat = execute_tool_call(db, profil_id, tool_call["name"], arguments)
             if trace is not None:
                 trace.append({"name": tool_call["name"], "arguments": arguments, "result": resultat})
             messages.append(
@@ -53,7 +63,12 @@ def run_tool_loop(
 
 
 def parse_json_list(contenu: str) -> list[Any] | None:
-    """Extrait un tableau JSON depuis une réponse (texte brut ou fence markdown)."""
+    """Extrait un tableau JSON depuis une réponse (texte brut ou fence markdown).
+
+    Sur un planning à 1 jour (3 repas ou moins), les petits modèles (ex. gemma2:2b)
+    renvoient parfois un unique objet JSON au lieu d'un tableau à un élément :
+    on normalise ce cas plutôt que de rejeter une réponse par ailleurs valide.
+    """
     texte = (contenu or "").strip()
     fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", texte)
     if fence:
@@ -62,11 +77,18 @@ def parse_json_list(contenu: str) -> list[Any] | None:
     data = _loads_or_none(texte)
     if data is None:
         match = re.search(r"\[[\s\S]*\]", texte)
-        if not match:
-            return None
-        data = _loads_or_none(match.group(0))
+        if match:
+            data = _loads_or_none(match.group(0))
+    if data is None:
+        match = re.search(r"\{[\s\S]*\}", texte)
+        if match:
+            data = _loads_or_none(match.group(0))
 
-    return data if isinstance(data, list) else None
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        return [data]
+    return None
 
 
 def _loads_or_none(texte: str) -> Any | None:

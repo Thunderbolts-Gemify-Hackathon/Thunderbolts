@@ -36,11 +36,21 @@ PLANNING_JSON_SHAPE = (
     '"recette_id": "..."}]'
 )
 
+RULE_OWN_DATA = (
+    "RÈGLE STRICTE — SOURCES AUTORISÉES : tu t'appuies uniquement sur (1) le profil foyer "
+    "ci-dessus, (2) les recettes déjà filtrées / fournies par KaliTao, (3) les résultats des "
+    "outils backend. Tu n'inventes pas de plats, marchés, prix ou conseils issus du web ou "
+    "de connaissances externes non vérifiées par un outil."
+)
+
 RULE_NO_HALLUCINATION = (
     "RÈGLE STRICTE — DONNÉES CHIFFRÉES : tu ne dois jamais halluciner un prix, un stock, "
     "une distance ou toute autre donnée chiffrée. Utilise systématiquement les outils "
-    "fournis (check_budget, find_nearby_market, check_expiry, update_stock) pour obtenir "
-    "ces informations avant de répondre."
+    "fournis (check_budget, find_nearby_market, find_nearest_supermarkets, check_expiry, "
+    "update_stock) pour obtenir ces informations avant de répondre. Utilise "
+    "find_nearby_market quand un ingrédient précis est demandé, et "
+    "find_nearest_supermarkets quand la demande est générale (\"le marché le plus proche\", "
+    "\"comment y aller\") sans produit précis."
 )
 
 RULE_FOOD_SAFETY = (
@@ -50,10 +60,25 @@ RULE_FOOD_SAFETY = (
     "avec une allergie ou un tabou, refuse poliment et propose une alternative sûre."
 )
 
+RULE_VOICE_DIRECTIVE = (
+    "Quand l'utilisateur demande où acheter un produit, réponds en directive courte et claire "
+    "(lieu, prix issu de l'outil, distance, sécurité du trajet). Si un trajet est marqué "
+    "a_eviter, propose un autre point de vente."
+)
+
 OUTPUT_FORMAT = (
     "FORMAT DE SORTIE : pour un planning de repas, réponds avec un JSON structuré (jours, "
     "repas, ingrédients, quantités). Pour toute explication, recommandation ou échange "
     "conversationnel, réponds en texte naturel en français."
+)
+
+RULE_VOICE_MODE = (
+    "MODE VOCAL ACTIF : ta réponse va être lue à voix haute, l'utilisateur ne voit pas "
+    "de texte. Parle de façon naturelle, chaleureuse et assez développée (2 à 5 phrases), "
+    "comme dans une vraie conversation orale — pas de listes à puces, pas de markdown, pas "
+    "d'abréviations. Si tu donnes un itinéraire ou une adresse, décris-le pas à pas comme "
+    "tu le ferais à voix haute à quelqu'un dans la rue. Termine souvent par une question "
+    "ou une proposition pour relancer la conversation."
 )
 
 CORRECTION_JSON = (
@@ -81,27 +106,34 @@ class PromptContext:
         )
 
 
-def build_system_prompt(profil_complet: dict[str, Any]) -> str:
-    """Prompt système à partir du JSON GET /onboarding/{id}/complet."""
+def build_system_prompt(profil_complet: dict[str, Any], *, voice: bool = False) -> str:
+    """Prompt système à partir du JSON GET /onboarding/{id}/complet.
+
+    `voice=True` (assistant vocal) ajoute une consigne de style parlé — la réponse
+    est destinée à être lue à voix haute plutôt que lue à l'écran.
+    """
     ctx = PromptContext.from_complet(profil_complet)
     nombre = ctx.foyer.nombre_personnes if ctx.foyer else 1
-    return "\n\n".join(
-        [
-            (
-                f"Tu es l'assistant culinaire de Sakafo AI pour un foyer de {nombre} "
-                "personne(s) à Madagascar. Ton rôle est de proposer des repas équilibrés, "
-                "réalistes et adaptés aux ressources disponibles du foyer."
-            ),
-            _describe_profil(ctx.profil),
-            _describe_foyer(ctx.foyer),
-            _describe_preferences(ctx.preferences),
-            _describe_budget(ctx.budget),
-            _describe_localisation(ctx.localisation),
-            RULE_NO_HALLUCINATION,
-            RULE_FOOD_SAFETY,
-            OUTPUT_FORMAT,
-        ]
-    )
+    parts = [
+        (
+            f"Tu es l'assistant culinaire de Sakafo AI pour un foyer de {nombre} "
+            "personne(s) à Madagascar. Ton rôle est de proposer des repas équilibrés, "
+            "réalistes et adaptés aux ressources disponibles du foyer."
+        ),
+        _describe_profil(ctx.profil),
+        _describe_foyer(ctx.foyer),
+        _describe_preferences(ctx.preferences),
+        _describe_budget(ctx.budget),
+        _describe_localisation(ctx.localisation),
+        RULE_OWN_DATA,
+        RULE_NO_HALLUCINATION,
+        RULE_FOOD_SAFETY,
+        RULE_VOICE_DIRECTIVE,
+        OUTPUT_FORMAT,
+    ]
+    if voice:
+        parts.append(RULE_VOICE_MODE)
+    return "\n\n".join(parts)
 
 
 def build_planning_user_prompt(
@@ -116,6 +148,8 @@ def build_planning_user_prompt(
                 "nom": r["nom"],
                 "tags": r["tags"],
                 "kcal_total": r["kcal_total"],
+                "couverture_stock": round(float(r.get("_couverture", 0.0)), 2),
+                "ingredients_manquants": list(r.get("_manquants") or []),
             }
             for r in candidats
         ],
@@ -124,9 +158,32 @@ def build_planning_user_prompt(
     return (
         f"Génère un planning de repas pour {nb_jours} jours à partir du {date_debut.isoformat()}, "
         "un repas par créneau (petit_dejeuner, dejeuner, diner) et par jour. "
+        "Privilégie les recettes avec une couverture_stock élevée et peu "
+        "d'ingredients_manquants — utilise EXACTEMENT ces champs pour savoir ce qui "
+        "manque en stock, n'invente jamais un ingrédient manquant qui n'y figure pas. "
         f"Choisis UNIQUEMENT parmi ces recettes (n'invente jamais de recette_id) : {recettes_json}\n\n"
         f"Réponds UNIQUEMENT avec un tableau JSON de la forme {PLANNING_JSON_SHAPE}, "
         "sans texte ni markdown autour."
+    )
+
+
+def build_etapes_system_prompt() -> str:
+    return (
+        "Tu es Kaly Tao, assistant culinaire. Réponds uniquement en français, "
+        "de façon brève, et strictement en JSON valide — sans phrase d'introduction, "
+        "sans conclusion, sans markdown, sans appel d'outil."
+    )
+
+
+def build_etapes_user_prompt(nom: str, ingredients: list[str]) -> str:
+    liste = ", ".join(ingredients) if ingredients else "aucun ingrédient renseigné"
+    return (
+        f'Donne les étapes pour préparer "{nom}" en 3 à 5 étapes courtes, dans l\'ordre. '
+        "Réponds uniquement avec un tableau JSON (aucun texte autour), au format exact : "
+        '[{"titre": "phrase courte à l\'impératif", "ingredients": ["..."]}]. '
+        "Le titre de chaque étape doit être une seule phrase courte et actionnable. "
+        "Les ingrédients de chaque étape doivent venir uniquement de cette liste "
+        f"(n'en invente aucun autre, laisse la liste vide si aucun ne s'applique) : {liste}."
     )
 
 
@@ -157,11 +214,20 @@ def _describe_foyer(foyer: FoyerOut | None) -> str:
         return "Composition du foyer : non renseignée."
 
     ligne = f"Foyer de {foyer.nombre_personnes} personne(s)."
-    membres = ", ".join(
-        f"{m.age_approx} ans" + ("" if m.regime_aligne else " (régime différent)")
-        for m in foyer.membres
-    )
+    membres = ", ".join(_describe_membre(m) for m in foyer.membres)
     return f"{ligne} Membres : {membres}." if membres else ligne
+
+
+def _describe_membre(membre) -> str:
+    parts = []
+    if membre.prenom:
+        parts.append(membre.prenom)
+    if membre.lien:
+        parts.append(f"({membre.lien})")
+    parts.append(f"{membre.age_approx} ans")
+    if not membre.regime_aligne:
+        parts.append("(régime différent)")
+    return " ".join(parts)
 
 
 def _describe_preferences(preferences: PreferencesOut | None) -> str:
@@ -178,6 +244,11 @@ def _describe_preferences(preferences: PreferencesOut | None) -> str:
     ]
     if preferences.regime_specifique and preferences.regime_specifique != "aucun":
         lignes.append(f"Régime spécifique à respecter : {preferences.regime_specifique}.")
+    if preferences.aliments_aimes:
+        lignes.append(
+            "Aliments appréciés (à privilégier si possible) : "
+            f"{_join_or_aucun(preferences.aliments_aimes)}."
+        )
     if preferences.aliments_detestes:
         lignes.append(
             "Aliments à éviter par préférence (non médical) : "
@@ -189,7 +260,11 @@ def _describe_preferences(preferences: PreferencesOut | None) -> str:
 def _describe_budget(budget: BudgetOut | None) -> str:
     if budget is None:
         return "Budget disponible : non renseigné."
-    return f"Budget disponible : {budget.montant_restant} Ar restants sur la {budget.periode}."
+    devise = budget.devise or "Ar"
+    return (
+        f"Budget disponible : {budget.montant_restant} {devise} "
+        f"restants sur la {budget.periode}."
+    )
 
 
 def _describe_localisation(localisation: LocalisationOut | None) -> str:

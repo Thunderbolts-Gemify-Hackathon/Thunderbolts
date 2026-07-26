@@ -10,7 +10,7 @@ def test_seed_idempotent(db_session):
     assert stats1["ingredients"] == 15
     assert stats1["recettes"] == 12
     assert stats1["points_de_vente"] == 8
-    assert stats1["itineraires"] == 3
+    assert stats1["itineraires"] == 8
 
     n_ing = db_session.query(Ingredient).count()
     n_rec = db_session.query(Recette).count()
@@ -24,7 +24,7 @@ def test_seed_idempotent(db_session):
     assert n_ri > 0
     assert n_pdv == 8
     assert n_offres == 8 * 15
-    assert n_it == 3
+    assert n_it == 8
 
     seed(db_session)
     assert db_session.query(Ingredient).count() == n_ing
@@ -36,3 +36,9 @@ def test_seed_idempotent(db_session):
 
     niveaux = {it.niveau_securite for it in db_session.query(Itineraire).all()}
     assert niveaux == {"sur", "prudence", "a_eviter"}
+
+    riz = db_session.query(Ingredient).filter_by(nom="riz").one()
+    assert riz.categorie == "féculent"
+    assert riz.conservation_jours == 365
+    assert riz.saison == ["toute_saison"]
+    assert riz.prix_moyen_reference == 2500.0

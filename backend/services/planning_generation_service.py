@@ -16,8 +16,9 @@ from backend.services.prompts import (
     build_planning_user_prompt,
     build_system_prompt,
 )
+from backend.services.stock_coverage import avec_couverture, stock_map
 
-JOURS_PAR_PERIODE = {"semaine": 7, "mois": 30}
+JOURS_PAR_PERIODE = {"jour": 1, "semaine": 7, "mois": 30}
 
 
 def generer_planning(
@@ -32,13 +33,16 @@ def generer_planning(
     nb_jours = JOURS_PAR_PERIODE.get(periode, 7)
 
     profil_complet = onboarding_suite.get_profil_complet(db, profil_id)
-    candidats = _selectionner_candidats(db, profil_complet, nb_jours)
+    candidats = _selectionner_candidats(db, profil_id, profil_complet, nb_jours)
 
     messages = [
         {"role": "system", "content": build_system_prompt(profil_complet)},
         {"role": "user", "content": build_planning_user_prompt(nb_jours, date_debut, candidats)},
     ]
-    repas_json = _demander_planning_json(db, client, messages)
+    # Pas d'outils ici : le stock est déjà injecté dans le prompt (couverture /
+    # manquants). Laisser check_expiry/update_stock ferait dériver le petit modèle
+    # et inventer des "manquants" incohérents.
+    repas_json = _demander_planning_json(db, client, messages, profil_id)
 
     return planning_service.create_planning_from_ia(
         db, profil_id, periode, date_debut, repas_json, candidats
@@ -47,6 +51,7 @@ def generer_planning(
 
 def _selectionner_candidats(
     db: Session,
+    profil_id: str,
     profil_complet: dict[str, Any],
     nb_jours: int,
 ) -> list[dict[str, Any]]:
@@ -60,19 +65,28 @@ def _selectionner_candidats(
     )
     if not compatibles:
         raise ValueError("Aucune recette compatible avec les allergies/tabous du profil")
-    return recipe_rag.selectionner_recettes_semaine(compatibles, nb_jours)
+
+    dispo = stock_map(db, profil_id)
+    scores = [avec_couverture(r, dispo) for r in compatibles]
+    # Les mieux couvertes d'abord : selectionner_recettes_semaine tire en tête de liste.
+    scores.sort(key=lambda r: (-r["_couverture"], r["nom"]))
+    return recipe_rag.selectionner_recettes_semaine(scores, nb_jours)
 
 
 def _demander_planning_json(
     db: Session,
     client: GemmaClient,
     messages: list[dict[str, Any]],
+    profil_id: str,
 ) -> list[dict[str, Any]]:
-    contenu = run_tool_loop(db, client, messages)
+    contenu = run_tool_loop(db, client, messages, profil_id=profil_id, tools=[])
     repas_json = parse_json_list(contenu)
     if repas_json is None:
+        print(f"[planning] JSON invalide, 1er essai : {contenu[:500]!r}")
         messages.append({"role": "user", "content": CORRECTION_JSON})
-        repas_json = parse_json_list(run_tool_loop(db, client, messages))
+        contenu = run_tool_loop(db, client, messages, profil_id=profil_id, tools=[])
+        repas_json = parse_json_list(contenu)
     if repas_json is None:
+        print(f"[planning] JSON invalide après retry : {contenu[:500]!r}")
         raise ValueError("Gemma n'a pas produit de planning JSON valide après retry")
     return repas_json

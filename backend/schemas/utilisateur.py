@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class UtilisateurCreate(BaseModel):
@@ -8,6 +8,7 @@ class UtilisateurCreate(BaseModel):
     prenom: str
     email: EmailStr
     date_naissance: date
+    mot_de_passe: str = Field(min_length=6)
 
     @field_validator("date_naissance")
     @classmethod
@@ -15,6 +16,11 @@ class UtilisateurCreate(BaseModel):
         if v >= date.today():
             raise ValueError("La date de naissance doit être dans le passé")
         return v
+
+
+class UtilisateurLogin(BaseModel):
+    email: EmailStr
+    mot_de_passe: str
 
 
 class UtilisateurOut(BaseModel):
@@ -25,3 +31,4 @@ class UtilisateurOut(BaseModel):
     prenom: str
     email: str
     date_naissance: date
+    api_token: str
