@@ -361,7 +361,11 @@ export default function MarketScreen() {
         >
           <Text style={styles.nom}>{m.point_de_vente.nom}</Text>
           <Text style={styles.meta}>
-            {formatAr(m.prix)} · {m.point_de_vente.type}
+            {formatAr(m.prix_crowd ?? m.prix)}
+            {m.prix_crowd != null ? ` (crowd)` : ""} · {m.point_de_vente.type}
+            {m.ecart_crowd_pct != null
+              ? ` · ${m.ecart_crowd_pct > 0 ? "+" : ""}${Math.round(m.ecart_crowd_pct)}%`
+              : ""}
           </Text>
           <Text style={styles.meta}>
             {m.itineraire

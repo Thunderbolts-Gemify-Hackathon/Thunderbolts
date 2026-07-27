@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import time
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.deps import require_profil_owner
+from backend.deps import get_current_utilisateur, require_profil_owner
 from backend.models.etat_du_jour import EtatDuJour
 from backend.models.foyer import Foyer
 from backend.models.profil import Profil
+from backend.models.utilisateur import Utilisateur
 from backend.schemas.gemma import (
     ChatRequest,
     ChatResponse,
@@ -24,6 +26,7 @@ from backend.schemas.gemma import (
 )
 from backend.schemas.planning import PeriodePlanning, PlanningOut
 from backend.services import (
+    llm_metrics,
     onboarding_suite,
     planning_generation_service,
     recette_etapes_service,
@@ -39,6 +42,15 @@ from backend.services.gemma_client import GemmaClient
 from backend.services.prompts import build_system_prompt
 
 router = APIRouter(prefix="/ia", tags=["ia"])
+
+
+@router.get("/metrics/summary")
+def metrics_summary(
+    hours: float = Query(24, gt=0, le=168),
+    _: Utilisateur = Depends(get_current_utilisateur),
+):
+    """Résumé agrégé des événements LLM (planning/chat/tools/parse)."""
+    return llm_metrics.summarize(hours=hours)
 
 
 @router.post("/{profil_id}/generer-planning", response_model=PlanningOut, status_code=201)
@@ -83,13 +95,25 @@ def chat(
     messages.append({"role": "user", "content": payload.message})
 
     tool_calls: list[dict] = []
+    t0 = time.perf_counter()
     try:
         reponse = run_tool_loop(
             db, GemmaClient(), messages, profil_id=profil.id, trace=tool_calls
         )
     except RuntimeError as exc:
+        llm_metrics.record_event(
+            "chat_fail",
+            profil_id=profil.id,
+            latency_ms=(time.perf_counter() - t0) * 1000,
+            detail=str(exc),
+        )
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
+    llm_metrics.record_event(
+        "chat_ok",
+        profil_id=profil.id,
+        latency_ms=(time.perf_counter() - t0) * 1000,
+    )
     return ChatResponse(reponse=reponse, tool_calls=tool_calls)
 
 

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import time
 from datetime import date
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from backend.models.planning import Planning
-from backend.services import onboarding_suite, planning_service, recipe_rag
+from backend.services import llm_metrics, onboarding_suite, planning_service, recipe_rag
 from backend.services.gemma_agent import parse_json_list, run_tool_loop
 from backend.services.gemma_client import GemmaClient
 from backend.services.prompts import (
@@ -31,22 +32,41 @@ def generer_planning(
     """Génère un planning via Gemma à partir des recettes compatibles, puis le persiste."""
     client = gemma_client or GemmaClient()
     nb_jours = JOURS_PAR_PERIODE.get(periode, 7)
+    t0 = time.perf_counter()
 
-    profil_complet = onboarding_suite.get_profil_complet(db, profil_id)
-    candidats = _selectionner_candidats(db, profil_id, profil_complet, nb_jours)
+    try:
+        profil_complet = onboarding_suite.get_profil_complet(db, profil_id)
+        candidats = _selectionner_candidats(db, profil_id, profil_complet, nb_jours)
 
-    messages = [
-        {"role": "system", "content": build_system_prompt(profil_complet)},
-        {"role": "user", "content": build_planning_user_prompt(nb_jours, date_debut, candidats)},
-    ]
-    # Pas d'outils ici : le stock est déjà injecté dans le prompt (couverture /
-    # manquants). Laisser check_expiry/update_stock ferait dériver le petit modèle
-    # et inventer des "manquants" incohérents.
-    repas_json = _demander_planning_json(db, client, messages, profil_id)
+        messages = [
+            {"role": "system", "content": build_system_prompt(profil_complet)},
+            {
+                "role": "user",
+                "content": build_planning_user_prompt(nb_jours, date_debut, candidats),
+            },
+        ]
+        # Pas d'outils ici : le stock est déjà injecté dans le prompt (couverture /
+        # manquants). Laisser check_expiry/update_stock ferait dériver le petit modèle
+        # et inventer des "manquants" incohérents.
+        repas_json = _demander_planning_json(db, client, messages, profil_id)
 
-    return planning_service.create_planning_from_ia(
-        db, profil_id, periode, date_debut, repas_json, candidats
-    )
+        planning = planning_service.create_planning_from_ia(
+            db, profil_id, periode, date_debut, repas_json, candidats
+        )
+        llm_metrics.record_event(
+            "planning_ok",
+            profil_id=profil_id,
+            latency_ms=(time.perf_counter() - t0) * 1000,
+        )
+        return planning
+    except Exception as exc:
+        llm_metrics.record_event(
+            "planning_fail",
+            profil_id=profil_id,
+            latency_ms=(time.perf_counter() - t0) * 1000,
+            detail=str(exc),
+        )
+        raise
 
 
 def _selectionner_candidats(
@@ -58,7 +78,7 @@ def _selectionner_candidats(
     preferences = dict(profil_complet.get("preferences") or {})
     preferences["objectif"] = (profil_complet.get("profil") or {}).get("objectif")
 
-    compatibles = recipe_rag.filtrer_recettes_compatibles(
+    compatibles = recipe_rag.rank_recettes(
         recipe_rag.charger_corpus_recettes(db),
         preferences=preferences,
         foyer=profil_complet.get("foyer") or {},
@@ -68,8 +88,10 @@ def _selectionner_candidats(
 
     dispo = stock_map(db, profil_id)
     scores = [avec_couverture(r, dispo) for r in compatibles]
-    # Les mieux couvertes d'abord : selectionner_recettes_semaine tire en tête de liste.
-    scores.sort(key=lambda r: (-r["_couverture"], r["nom"]))
+    # Couverture + rank déjà présent : priorité couverture, puis rank.
+    scores.sort(
+        key=lambda r: (-r["_couverture"], -float(r.get("_rank_score") or 0), r["nom"])
+    )
     return recipe_rag.selectionner_recettes_semaine(scores, nb_jours)
 
 

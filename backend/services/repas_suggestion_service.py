@@ -6,11 +6,13 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
 
+from backend.models.agent_action import AgentAction
+from backend.models.planning import Planning, RepasPlanifie
 from backend.models.recette import Recette
 from backend.services import onboarding_suite, recipe_rag
 from backend.services.gemma_client import GemmaClient
@@ -18,6 +20,11 @@ from backend.services.prompts import build_system_prompt
 from backend.services.stock_coverage import avec_couverture, stock_map
 
 POOL_SIZE = 6
+_FEEDBACK_LIKE = 0.22
+_FEEDBACK_DISLIKE = -0.35
+_DIVERSITY_PENALTY = 0.1
+_RANK_BLEND = 0.3
+_RECENT_DAYS = 3
 
 
 def inferer_type_repas(heure: int) -> str:
@@ -26,6 +33,42 @@ def inferer_type_repas(heure: int) -> str:
     if heure < 16:
         return "dejeuner"
     return "diner"
+
+
+def _recent_suggested_ids(db: Session, profil_id: str) -> set[str]:
+    """Recettes récemment suggérées (AgentAction) ou consommées (planning, 3 jours)."""
+    ids: set[str] = set()
+    cutoff = datetime.utcnow() - timedelta(days=_RECENT_DAYS)
+    actions = (
+        db.query(AgentAction)
+        .filter(
+            AgentAction.profil_id == profil_id,
+            AgentAction.created_at >= cutoff,
+        )
+        .all()
+    )
+    for action in actions:
+        try:
+            payload = json.loads(action.payload_json or "{}")
+        except json.JSONDecodeError:
+            continue
+        rid = payload.get("recette_id")
+        if rid:
+            ids.add(str(rid))
+
+    jour_min = date.today() - timedelta(days=_RECENT_DAYS)
+    rows = (
+        db.query(RepasPlanifie.recette_id)
+        .join(Planning, Planning.id == RepasPlanifie.planning_id)
+        .filter(
+            Planning.profil_id == profil_id,
+            RepasPlanifie.statut == "consomme",
+            RepasPlanifie.jour >= jour_min,
+        )
+        .all()
+    )
+    ids.update(r[0] for r in rows)
+    return ids
 
 
 def _candidats_scored(
@@ -41,9 +84,14 @@ def _candidats_scored(
     preferences = dict(profil_complet.get("preferences") or {})
     preferences["objectif"] = (profil_complet.get("profil") or {}).get("objectif")
 
+    recent_ids = _recent_suggested_ids(db, profil_id)
     corpus = recipe_rag.charger_corpus_recettes(db)
-    compatibles = recipe_rag.filtrer_recettes_compatibles(
-        corpus, preferences=preferences, foyer=profil_complet.get("foyer") or {}
+    compatibles = recipe_rag.rank_recettes(
+        corpus,
+        preferences=preferences,
+        foyer=profil_complet.get("foyer") or {},
+        recent_ids=recent_ids,
+        duree_max=duree_max_minutes,
     )
 
     candidats = [r for r in compatibles if type_repas in r["tags"]] or compatibles
@@ -62,18 +110,30 @@ def _candidats_scored(
     stock_dispo = stock_map(db, profil_id)
     scored = [avec_couverture(r, stock_dispo) for r in candidats]
 
-    # Re-ranking feedback : boost liked, pénalise disliked
     from backend.services import feedback_service
 
     liked = feedback_service.liked_recette_ids(db, profil_id)
     disliked = feedback_service.disliked_recette_ids(db, profil_id)
+
+    rank_vals = [float(r.get("_rank_score") or 0) for r in scored]
+    rank_max = max(rank_vals) if rank_vals else 0.0
+    rank_min = min(rank_vals) if rank_vals else 0.0
+    rank_span = (rank_max - rank_min) or 1.0
+
     for r in scored:
         bonus = 0.0
         if r["id"] in liked:
-            bonus += 0.15
+            bonus += _FEEDBACK_LIKE
         if r["id"] in disliked:
-            bonus -= 0.25
-        r["_score"] = float(r["_couverture"]) + bonus
+            bonus += _FEEDBACK_DISLIKE
+        if r["id"] in recent_ids:
+            bonus -= _DIVERSITY_PENALTY
+
+        raw_rank = float(r.get("_rank_score") or 0)
+        norm_rank = (raw_rank - rank_min) / rank_span
+        r["_score"] = (
+            float(r["_couverture"]) + bonus + _RANK_BLEND * norm_rank
+        )
 
     if mode == "rapide":
         scored = sorted(
@@ -122,6 +182,8 @@ def suggestion_ce_soir(
     duree_max_minutes: int | None = None,
 ) -> dict[str, Any]:
     """Suggestion déterministe pour le dashboard (pas d'appel Gemma)."""
+    from backend.services import llm_metrics
+
     type_repas, scored, _ = _candidats_scored(
         db, profil_id, None, duree_max_minutes, mode=mode or "stock"
     )
@@ -136,7 +198,7 @@ def suggestion_ce_soir(
             cout += prix * (qty / 1000.0)
         else:
             cout += prix * qty
-    return {
+    result = {
         "recette": recette_obj,
         "type_repas": type_repas,
         "message": _message_par_defaut(retenue),
@@ -153,6 +215,12 @@ def suggestion_ce_soir(
             for r in scored[1:4]
         ],
     }
+    llm_metrics.record_event(
+        "ce_soir",
+        profil_id=profil_id,
+        detail={"recette_id": retenue["id"], "type_repas": type_repas},
+    )
+    return result
 
 
 def _message_par_defaut(recette: dict[str, Any]) -> str:

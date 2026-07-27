@@ -24,6 +24,7 @@ import { useHandCoverGesture } from "@/lib/handGesture";
 import { getCachedContext, getCachedRecette } from "@/lib/recipeCache";
 import { recetteVisual } from "@/lib/recipeVisual";
 import { listenOnce, speak } from "@/lib/speech";
+import { parseCuisineVoiceCommand } from "@/lib/cuisineVoice";
 import { useEtapesRecette } from "@/lib/useEtapesRecette";
 import { useSession } from "@/session/SessionContext";
 import { colors, radius, space, type } from "@/theme";
@@ -200,24 +201,26 @@ export default function ModeCuisineScreen() {
     if (listeningCmd) return;
     setListeningCmd(true);
     speak("Commande ?");
+    // Laisse TTS finir avant STT pour éviter que le micro capte « Commande ? ».
+    await new Promise((r) => setTimeout(r, 700));
     const result = await listenOnce();
     setListeningCmd(false);
     if ("error" in result) {
       Alert.alert("Voix", result.error);
       return;
     }
-    const t = result.text.toLowerCase();
-    if (/\b(suivant|next|avance)\b/.test(t)) {
+    const action = parseCuisineVoiceCommand(result.text);
+    if (action === "next") {
       goNext();
-    } else if (/\b(répète|repete|repeat)\b/.test(t)) {
+    } else if (action === "repeat") {
       repeatStep();
-    } else if (/\b(pause|stop)\b/.test(t)) {
+    } else if (action === "pause") {
       setTimerPaused((p) => !p);
       speak(timerPaused ? "Minuteur repris." : "Minuteur en pause.");
-    } else if (/\b(précédent|precedent|retour)\b/.test(t)) {
+    } else if (action === "prev") {
       goPrev();
     } else {
-      speak("Dis suivant, répète ou pause.");
+      speak("Dis suivant, répète, retour ou pause.");
     }
   }, [listeningCmd, goNext, goPrev, repeatStep, timerPaused]);
 
@@ -443,42 +446,46 @@ export default function ModeCuisineScreen() {
       <View style={styles.bottomBar}>
         <Pressable
           onPress={() => void handleVoiceCommand()}
-          style={styles.iconBtn}
-          hitSlop={8}
+          style={[styles.iconBtn, listeningCmd && styles.iconBtnActive]}
+          hitSlop={10}
           disabled={listeningCmd}
+          accessibilityLabel="Commande vocale"
         >
           <Feather
             name={listeningCmd ? "radio" : "mic"}
-            size={20}
-            color={colors.ink}
+            size={24}
+            color={listeningCmd ? "#F7F3EA" : colors.ink}
           />
         </Pressable>
         <Pressable
           onPress={() => setTimerOpen(true)}
           style={styles.iconBtn}
-          hitSlop={8}
+          hitSlop={10}
+          accessibilityLabel="Minuteur"
         >
-          <Feather name="clock" size={20} color={colors.ink} />
+          <Feather name="clock" size={24} color={colors.ink} />
         </Pressable>
         <Pressable
           onPress={goPrev}
           disabled={stepIndex === 0}
           style={[styles.iconBtn, stepIndex === 0 && styles.iconBtnDisabled]}
-          hitSlop={8}
+          hitSlop={10}
+          accessibilityLabel="Étape précédente"
         >
-          <Feather name="chevron-left" size={22} color={colors.ink} />
+          <Feather name="chevron-left" size={26} color={colors.ink} />
         </Pressable>
         <Pressable
           onPress={() => (isLast ? setShowDone(true) : goNext())}
           style={styles.nextBtn}
           disabled={!step}
+          accessibilityLabel={isLast ? "Terminer" : "Étape suivante"}
         >
           <Text style={styles.nextLabel}>
-            {isLast ? "Terminer" : "Étape suivante"}
+            {isLast ? "Terminer" : "Suivant"}
           </Text>
           <Feather
             name={isLast ? "check" : "chevron-right"}
-            size={20}
+            size={22}
             color="#F7F3EA"
           />
         </Pressable>
@@ -494,9 +501,9 @@ export default function ModeCuisineScreen() {
             <Text style={styles.guideBody}>
               1. Place le téléphone face à toi, un peu en retrait.{"\n"}
               2. Mets ta main devant le haut du téléphone (caméra selfie).{"\n"}
-              3. Dès que la main est détectée, l’étape avance toute seule.{"\n"}
-              4. Retire la main, puis recommence pour l’étape suivante.{"\n\n"}
-              Tu n’as pas besoin de toucher l’écran (mains mouillées OK).
+              3. Tiens 1 seconde : l’étape avance quand la couverture est stable.{"\n"}
+              4. Retire la main clairement, puis recommence.{"\n\n"}
+              Micro : dis « suivant », « répète », « retour » ou « pause ».
             </Text>
             <Pressable
               onPress={() => setShowGuide(false)}
@@ -812,28 +819,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: space.sm,
-    padding: space.lg,
+    paddingHorizontal: space.lg,
+    paddingBottom: space.lg,
+    paddingTop: space.sm,
   },
   iconBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "rgba(255,255,255,0.75)",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "rgba(255,255,255,0.88)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  iconBtnActive: {
+    backgroundColor: colors.brand,
   },
   iconBtnDisabled: { opacity: 0.4 },
   nextBtn: {
     flex: 1,
     flexDirection: "row",
     gap: space.sm,
-    minHeight: 56,
+    minHeight: 60,
     borderRadius: 999,
     backgroundColor: colors.brand,
     alignItems: "center",
     justifyContent: "center",
   },
-  nextLabel: { fontSize: 16, fontWeight: "700", color: "#F7F3EA" },
+  nextLabel: { fontSize: 17, fontWeight: "800", color: "#F7F3EA" },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

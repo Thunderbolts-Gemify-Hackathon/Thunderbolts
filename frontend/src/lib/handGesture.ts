@@ -4,32 +4,23 @@ import type { CameraView } from "expo-camera";
 /**
  * Détection de main devant la caméra selfie (Expo Go, sans ML).
  *
- * Principe : micro-captures JPEG. Une main devant l'objectif assombrit /
- * uniformise l'image → JPEG nettement plus petit. Dès que 2–3 captures
- * consécutives sont sous le seuil, on considère la main détectée → on avance.
- * Ensuite il faut retirer la main avant le prochain déclenchement.
+ * v3 (senior) :
+ * - taille JPEG (main = assombrissement)
+ * - stabilité : variance basse sur 3 frames = couverture réelle (pas un flash)
+ * - double armement : main détectée → hold → release → réarme
  *
- * Seuils (v2) :
- * - HAND_RATIO 0.55 : plus strict qu'avant (0.62) pour moins de faux positifs
- *   en cuisine lumineuse (ombres / passage).
- * - STRONG_HAND_RATIO 0.35 : main très proche = 1 frame suffit
- * - RELEASE_RATIO 0.82 : main retirée clairement avant réarmement
- *
- * Future : MediaPipe Hands / TFLite pour landmarks (doigts) — hors Expo Go
- * sans custom native module. Ce heuristic reste le chemin supporté.
- *
- * Aucun setState pendant la boucle → évite le scintillement de l'UI.
+ * MediaPipe Hands reste le chemin idéal hors Expo Go (custom native).
  */
 
-const SAMPLE_INTERVAL_MS = 380;
-const BASELINE_SAMPLES = 5;
-/** Seuil resserré : évite déclenchements sur simples variations de lumière. */
-const HAND_RATIO = 0.55;
-const STRONG_HAND_RATIO = 0.35;
-const RELEASE_RATIO = 0.82;
-const COOLDOWN_MS = 950;
-/** Exige 3 frames « main » sauf si ratio très bas (STRONG). */
+const SAMPLE_INTERVAL_MS = 320;
+const BASELINE_SAMPLES = 6;
+const HAND_RATIO = 0.52;
+const STRONG_HAND_RATIO = 0.32;
+const RELEASE_RATIO = 0.84;
+const COOLDOWN_MS = 1100;
 const STREAK_NEEDED = 3;
+/** Variance relative max entre frames "main" (stabilité). */
+const MAX_STREAK_VARIANCE = 0.12;
 
 type Options = {
   enabled: boolean;
@@ -50,6 +41,7 @@ export function useHandCoverGesture({
   const baselineRef = useRef<number | null>(null);
   const baselineSamplesRef = useRef<number[]>([]);
   const lowStreakRef = useRef(0);
+  const streakRatiosRef = useRef<number[]>([]);
   const armedRef = useRef(true);
   const cooldownUntilRef = useRef(0);
   const runningRef = useRef(false);
@@ -65,6 +57,7 @@ export function useHandCoverGesture({
       baselineRef.current = null;
       baselineSamplesRef.current = [];
       lowStreakRef.current = 0;
+      streakRatiosRef.current = [];
       armedRef.current = true;
       busyRef.current = false;
       if (handPresentRef.current) {
@@ -126,20 +119,37 @@ export function useHandCoverGesture({
 
         if (handNow) {
           lowStreakRef.current += 1;
+          streakRatiosRef.current.push(ratio);
+          if (streakRatiosRef.current.length > STREAK_NEEDED) {
+            streakRatiosRef.current.shift();
+          }
         } else {
           lowStreakRef.current = 0;
+          streakRatiosRef.current = [];
           if (ratio >= RELEASE_RATIO) {
             armedRef.current = true;
           }
         }
 
+        const streak = streakRatiosRef.current;
+        const mean =
+          streak.length > 0
+            ? streak.reduce((a, b) => a + b, 0) / streak.length
+            : 1;
+        const variance =
+          streak.length > 1
+            ? streak.reduce((s, r) => s + (r - mean) ** 2, 0) / streak.length
+            : 0;
+        const stable = variance <= MAX_STREAK_VARIANCE;
+
         const detected =
-          lowStreakRef.current >= STREAK_NEEDED ||
+          (lowStreakRef.current >= STREAK_NEEDED && stable) ||
           (lowStreakRef.current >= 1 && ratio < STRONG_HAND_RATIO);
 
         if (armedRef.current && detected && now >= cooldownUntilRef.current) {
           armedRef.current = false;
           lowStreakRef.current = 0;
+          streakRatiosRef.current = [];
           cooldownUntilRef.current = now + COOLDOWN_MS;
           onTriggerRef.current();
         }

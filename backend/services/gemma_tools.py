@@ -121,15 +121,27 @@ TOOLS: list[dict[str, Any]] = [
 def execute_tool_call(
     db: Session, profil_id: str, tool_name: str, arguments: dict
 ) -> dict:
+    from backend.services import llm_metrics
+
     args = dict(arguments or {})
     try:
         result = _dispatch(db, profil_id, tool_name, args)
         payload = _to_jsonable(result)
         _log_tool_call(tool_name, args, payload)
+        llm_metrics.record_event(
+            "tool_ok",
+            profil_id=profil_id,
+            detail={"tool": tool_name},
+        )
         return payload if isinstance(payload, dict) else {"result": payload}
     except Exception as exc:  # noqa: BLE001
         error = {"error": str(exc), "tool": tool_name}
         _log_tool_call(tool_name, args, error)
+        llm_metrics.record_event(
+            "tool_fail",
+            profil_id=profil_id,
+            detail={"tool": tool_name, "error": str(exc)},
+        )
         return error
 
 

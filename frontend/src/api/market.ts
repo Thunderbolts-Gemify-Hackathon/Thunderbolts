@@ -15,6 +15,8 @@ export type MarketMatch = {
     mode_deplacement: string;
   } | null;
   deprioritise: boolean;
+  prix_crowd?: number | null;
+  ecart_crowd_pct?: number | null;
 };
 
 export function findNearbyMarket(

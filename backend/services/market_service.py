@@ -7,15 +7,20 @@ from sqlalchemy.orm import Session, joinedload
 
 from backend.models.ingredient import Ingredient
 from backend.models.itineraire import Itineraire
+from backend.models.localisation import Localisation
 from backend.models.point_de_vente import Offre, PointDeVente
+from backend.models.price_report import PriceIndex
 from backend.schemas.composites import MarketMatchOut, PointDeVenteProcheOut
 from backend.schemas.itineraire import ItineraireOut
 from backend.schemas.point_de_vente import PointDeVenteOut
 
 # Variation de prix par point de vente (même logique que le catalogue démo :
 # grandes surfaces un peu plus chères, grossistes/épiceries moins chers).
+# Les valeurs de PRIX_BASE (market_catalog) sont des références saisonnières
+# approximatives Antananarivo — le crowd PriceIndex affine le ranking local.
 _VARIANCE_PRIX = [1.15, 1.25, 1.20, 0.75, 0.85, 0.70, 1.10, 0.90]
 _PRIX_DEFAUT_SANS_REFERENCE = 3000.0
+_CROWD_TOLERANCE = 0.15  # 15 % autour de la moyenne crowd
 
 
 def seed_offres_pour_ingredient(db: Session, ingredient: Ingredient) -> int:
@@ -91,6 +96,27 @@ def _choisir_itineraire(
     return itineraires[0]
 
 
+def _crowd_prix(
+    db: Session, ingredient_id: str, profil_id: Optional[str]
+) -> float | None:
+    if not profil_id:
+        return None
+    loc = db.query(Localisation).filter(Localisation.profil_id == profil_id).first()
+    if not loc or not loc.quartier:
+        return None
+    quartier = loc.quartier.strip().lower()
+    idx = (
+        db.query(PriceIndex)
+        .filter(
+            PriceIndex.ingredient_id == ingredient_id,
+            PriceIndex.quartier == quartier,
+        )
+        .order_by(PriceIndex.jour.desc())
+        .first()
+    )
+    return float(idx.prix_moyen) if idx else None
+
+
 def find_nearby_market(
     db: Session,
     ingredient_id: str,
@@ -106,24 +132,41 @@ def find_nearby_market(
         .all()
     )
 
-    matches: list[MarketMatchOut] = []
+    crowd = _crowd_prix(db, ingredient_id, profil_id)
+    scored: list[tuple[MarketMatchOut, float, float]] = []
     for offre in offres:
         pdv = offre.point_de_vente
-        if haversine(lat, lon, pdv.latitude, pdv.longitude) > rayon_km:
+        distance = haversine(lat, lon, pdv.latitude, pdv.longitude)
+        if distance > rayon_km:
             continue
         itineraire = _choisir_itineraire(list(pdv.itineraires), profil_id)
         deprioritise = bool(itineraire and itineraire.niveau_securite == "a_eviter")
-        matches.append(
-            MarketMatchOut(
-                point_de_vente=PointDeVenteOut.model_validate(pdv),
-                prix=offre.prix,
-                itineraire=ItineraireOut.model_validate(itineraire) if itineraire else None,
-                deprioritise=deprioritise,
+        ecart_pct: float | None = None
+        if crowd and crowd > 0:
+            ecart_pct = abs(offre.prix - crowd) / crowd
+        scored.append(
+            (
+                MarketMatchOut(
+                    point_de_vente=PointDeVenteOut.model_validate(pdv),
+                    prix=offre.prix,
+                    itineraire=ItineraireOut.model_validate(itineraire) if itineraire else None,
+                    deprioritise=deprioritise,
+                    prix_crowd=crowd,
+                    ecart_crowd_pct=round(ecart_pct * 100, 2) if ecart_pct is not None else None,
+                ),
+                ecart_pct if ecart_pct is not None else 0.0,
+                distance,
             )
         )
 
-    matches.sort(key=lambda m: (m.deprioritise, m.prix))
-    return matches
+    # Préfère les PDV dont le prix est dans ±15 % du crowd ; sinon écart relatif.
+    def _sort_key(item: tuple[MarketMatchOut, float, float]) -> tuple:
+        match, ecart, distance = item
+        hors_bande = 1 if (crowd and ecart > _CROWD_TOLERANCE) else 0
+        return (match.deprioritise, hors_bande, ecart, match.prix, distance)
+
+    scored.sort(key=_sort_key)
+    return [m for m, _, _ in scored]
 
 
 def find_nearest_points_de_vente(

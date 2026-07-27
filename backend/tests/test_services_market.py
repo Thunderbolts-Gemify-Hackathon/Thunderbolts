@@ -2,13 +2,16 @@ from datetime import date
 
 from backend.models.ingredient import Ingredient
 from backend.models.itineraire import Itineraire
+from backend.models.localisation import Localisation
 from backend.models.point_de_vente import Offre, PointDeVente
+from backend.models.price_report import PriceIndex
 from backend.services.market_service import (
     find_nearby_market,
     find_nearest_points_de_vente,
     get_meilleur_compromis,
     haversine,
 )
+from backend.tests.factories import make_profil
 
 ORIGIN_LAT = -18.9102
 ORIGIN_LON = 47.5256
@@ -39,6 +42,7 @@ def _seed_markets(db, ingredient_id: str):
         ]
     )
     db.commit()
+    return pdvs
 
 
 def test_haversine_meme_point():
@@ -65,6 +69,50 @@ def test_get_meilleur_compromis(db_session):
     _seed_markets(db_session, poulet.id)
     meilleur = get_meilleur_compromis(db_session, poulet.id, ORIGIN_LAT, ORIGIN_LON)
     assert meilleur.point_de_vente.nom == "Epicerie 67ha"
+
+
+def test_find_nearby_market_prefers_crowd_price(db_session):
+    """Avec PriceIndex, un PDV proche du prix crowd passe avant un PDV plus cher/loin."""
+    poulet = Ingredient(nom="poulet-crowd", unite_defaut="g", prix_moyen_reference=10000)
+    db_session.add(poulet)
+    db_session.flush()
+    pdvs = _seed_markets(db_session, poulet.id)
+
+    profil = make_profil(db_session)
+    db_session.add(
+        Localisation(
+            profil_id=profil.id,
+            latitude=ORIGIN_LAT,
+            longitude=ORIGIN_LON,
+            quartier="Analakely",
+        )
+    )
+    # Crowd ~15000 → Score Analakely (15000) dans la bande, Epicerie (10000) hors 15 %
+    db_session.add(
+        PriceIndex(
+            ingredient_id=poulet.id,
+            quartier="analakely",
+            jour=date.today(),
+            prix_moyen=15000.0,
+            nb_rapports=3,
+        )
+    )
+    db_session.commit()
+
+    matches = find_nearby_market(
+        db_session,
+        poulet.id,
+        ORIGIN_LAT,
+        ORIGIN_LON,
+        rayon_km=10,
+        profil_id=profil.id,
+    )
+    safe = [m for m in matches if not m.deprioritise]
+    assert safe[0].point_de_vente.nom == "Score Analakely"
+    assert safe[0].prix_crowd == 15000.0
+    assert safe[0].ecart_crowd_pct is not None
+    assert safe[0].ecart_crowd_pct < (safe[1].ecart_crowd_pct or 999)
+    assert pdvs[0].nom == "Score Analakely"
 
 
 def test_find_nearest_points_de_vente_sans_ingredient(db_session):

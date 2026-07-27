@@ -8,6 +8,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from backend.services import llm_metrics
 from backend.services.gemma_client import GemmaClient
 from backend.services.gemma_tools import TOOLS, execute_tool_call
 
@@ -85,9 +86,12 @@ def parse_json_list(contenu: str) -> list[Any] | None:
             data = _loads_or_none(match.group(0))
 
     if isinstance(data, list):
+        llm_metrics.record_event("json_parse_ok")
         return data
     if isinstance(data, dict):
+        llm_metrics.record_event("json_parse_ok")
         return [data]
+    llm_metrics.record_event("json_parse_fail", detail={"preview": (contenu or "")[:120]})
     return None
 
 

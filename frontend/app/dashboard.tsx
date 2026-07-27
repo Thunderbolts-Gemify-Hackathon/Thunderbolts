@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -29,11 +28,9 @@ import { QUARTIER_COORDS } from "@/api/onboarding";
 import { getAlertesPeremption } from "@/api/stockAlerts";
 import { getBudgetSummary, type BudgetSummary } from "@/api/budget";
 import { cacheRecette } from "@/lib/recipeCache";
-import { todayIso, weekStartIso } from "@/lib/dates";
+import { weekStartIso } from "@/lib/dates";
 import { useOnboarding } from "@/onboarding/store";
 import { useSession } from "@/session/SessionContext";
-import { ActionCard } from "@/ui/ActionCard";
-import { QuickTile } from "@/ui/QuickTile";
 import { Screen } from "@/ui/Screen";
 import { Body, Brand, Title } from "@/ui/Typography";
 import { colors, radius, space, type } from "@/theme";
@@ -51,6 +48,10 @@ type DashState = {
   error: string | null;
 };
 
+/**
+ * Dashboard senior : une composition, un job.
+ * Hero = Ce soir. Le reste est compact (signaux + 4 raccourcis).
+ */
 export default function DashboardScreen() {
   const router = useRouter();
   const { data, reset, done } = useOnboarding();
@@ -69,6 +70,7 @@ export default function DashboardScreen() {
     error: null,
   });
   const [actingId, setActingId] = useState<string | null>(null);
+  const [showMore, setShowMore] = useState(false);
 
   const name = session?.prenom || "toi";
   const profilId = session?.profilId;
@@ -166,34 +168,44 @@ export default function DashboardScreen() {
   }, [load]);
 
   const confirmReset = () => {
-    Alert.alert(
-      "Refaire l'onboarding ?",
-      "Tes réponses actuelles seront réinitialisées.",
-      [
-        { text: "Annuler", style: "cancel" },
-        {
-          text: "Continuer",
-          style: "destructive",
-          onPress: async () => {
-            reset();
-            await clearSession();
-            router.replace("/");
-          },
+    Alert.alert("Refaire l'onboarding ?", "Tes réponses actuelles seront réinitialisées.", [
+      { text: "Annuler", style: "cancel" },
+      {
+        text: "Continuer",
+        style: "destructive",
+        onPress: async () => {
+          reset();
+          await clearSession();
+          router.replace("/");
         },
-      ],
-    );
+      },
+    ]);
   };
 
-  const today = todayIso();
-  const repasToday =
-    state.planning?.repas.find(
-      (r) => r.jour === today && r.statut !== "annule",
-    ) ?? state.planning?.repas.find((r) => r.statut === "planifie");
+  const respond = async (actionId: string, decision: "accepte" | "refuse") => {
+    if (!profilId || !token) return;
+    setActingId(actionId);
+    try {
+      const action = state.digest?.actions?.find((a) => a.id === actionId);
+      await respondAgentAction(profilId, token, actionId, decision);
+      if (decision === "accepte" && action?.type_action.includes("course")) {
+        router.push("/courses" as Href);
+      } else {
+        await load();
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setActingId(null);
+    }
+  };
 
-  const stockOk = state.stock.filter((l) => l.quantite_disponible > 0).length;
-  const stockEmpty = state.stock.filter(
-    (l) => l.quantite_disponible <= 0,
-  ).length;
+  const pendingActions = (state.digest?.actions || []).filter(
+    (a) => a.statut === "propose",
+  );
+  const coveragePct = state.ceSoir
+    ? Math.round(state.ceSoir.couverture_stock * 100)
+    : null;
 
   return (
     <Screen refreshing={loading} onRefresh={() => void load()}>
@@ -203,292 +215,201 @@ export default function DashboardScreen() {
           <Title style={styles.greeting}>Salut {name}.</Title>
         </View>
         <Pressable
-          onPress={confirmReset}
-          accessibilityLabel="Refaire l'onboarding"
-          style={({ pressed }) => [
-            styles.headerIcon,
-            pressed && { opacity: 0.6 },
-          ]}
+          onPress={() => router.push("/reglages" as Href)}
+          style={styles.headerIcon}
         >
           <Ionicons name="settings-outline" size={20} color={colors.brand} />
         </Pressable>
       </View>
 
-      <Body style={styles.intro}>
-        {done
-          ? "Voici un aperçu de ta journée."
-          : "Complète l'onboarding pour personnaliser ton accueil."}
-      </Body>
-
+      {!done ? (
+        <Body style={styles.intro}>Termine l'onboarding pour personnaliser Ce soir.</Body>
+      ) : null}
       {state.error ? <Text style={styles.error}>{state.error}</Text> : null}
 
-      {state.peremption > 0 ? (
-        <Pressable style={styles.alertBanner} onPress={() => router.push("/stock" as Href)}>
-          <Ionicons name="warning-outline" size={18} color={colors.danger} />
-          <Text style={styles.alertText}>
-            {state.peremption} aliment(s) bientôt périmé(s)
+      {/* HERO — un seul job */}
+      <View style={styles.hero}>
+        <Text style={styles.heroEyebrow}>CE SOIR</Text>
+        <Text style={styles.heroTitle}>
+          {state.ceSoir?.recette.nom || "Pas encore d'idée"}
+        </Text>
+        {state.ceSoir ? (
+          <Text style={styles.heroMeta}>
+            {coveragePct}% du stock
+            {state.ceSoir.cout_estime
+              ? ` · ~${Math.round(state.ceSoir.cout_estime)} Ar`
+              : ""}
+            {state.ceSoir.recette.duree_minutes
+              ? ` · ${state.ceSoir.recette.duree_minutes} min`
+              : ""}
           </Text>
-        </Pressable>
-      ) : null}
+        ) : (
+          <Text style={styles.heroMeta}>
+            {data.localisation.quartier || "Ajoute ton quartier et du stock"}
+          </Text>
+        )}
+        {state.ceSoir?.message ? (
+          <Text style={styles.heroMsg}>{state.ceSoir.message}</Text>
+        ) : null}
 
-      <View style={styles.heroCard}>
-        <Text style={styles.heroLabel}>CE SOIR</Text>
-        <Text style={styles.heroValue}>
-          {state.ceSoir?.recette.nom ||
-            (repasToday
-              ? `${repasToday.recette.nom} · ${repasToday.type_repas}`
-              : "Aucune idée pour ce soir")}
-        </Text>
-        <Text style={styles.heroHint}>
-          {state.ceSoir
-            ? `${Math.round(state.ceSoir.couverture_stock * 100)}% stock · ~${Math.round(state.ceSoir.cout_estime)} Ar · ${state.ceSoir.message}`
-            : data.localisation.quartier || "Quartier non renseigné"}
-        </Text>
-        {state.ceSoir?.recette.id ? (
-          <View style={styles.heroActions}>
+        <View style={styles.heroCtas}>
+          <Pressable
+            style={[styles.ctaPrimary, !state.ceSoir?.recette.id && styles.ctaDisabled]}
+            disabled={!state.ceSoir?.recette.id}
+            onPress={() =>
+              state.ceSoir?.recette.id &&
+              router.push(`/cuisiner/${state.ceSoir.recette.id}` as Href)
+            }
+          >
+            <Text style={styles.ctaPrimaryText}>Cuisiner maintenant</Text>
+          </Pressable>
+          <View style={styles.ctaRow}>
             <Pressable
-              style={styles.heroBtn}
-              onPress={() =>
-                router.push(`/cuisiner/${state.ceSoir!.recette.id}` as Href)
-              }
-            >
-              <Text style={styles.heroBtnText}>Cuisiner</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.heroBtn, styles.heroBtnGhost]}
+              style={styles.ctaSecondary}
               onPress={() => router.push("/repas" as Href)}
             >
-              <Text style={[styles.heroBtnText, { color: colors.brand }]}>
-                Autre idée
-              </Text>
+              <Text style={styles.ctaSecondaryText}>Autre idée</Text>
+            </Pressable>
+            <Pressable
+              style={styles.ctaSecondary}
+              onPress={() =>
+                void getCeSoir(profilId!, token!, "rapide")
+                  .then((ceSoir) => setState((s) => ({ ...s, ceSoir })))
+                  .catch(() => undefined)
+              }
+            >
+              <Text style={styles.ctaSecondaryText}>Plus rapide</Text>
             </Pressable>
           </View>
-        ) : null}
+        </View>
       </View>
 
-      {state.summary ? (
-        <Text style={styles.budgetLine}>
-          Budget : {formatAr(state.summary.montant_restant, state.summary.devise)} restant
-          {" · "}
-          {state.summary.pourcent_consomme}% consommé
-        </Text>
-      ) : null}
-
-      {state.antiGaspi ? (
-        <View style={styles.antiCard}>
-          <Text style={styles.digestLabel}>ANTI-GASPI</Text>
-          <Text style={styles.digestText}>
-            {Math.round(state.antiGaspi.ariary_sauves)} Ar sauvés · streak{" "}
-            {state.antiGaspi.streak_jours} j
-          </Text>
-          <Text style={styles.digestHint}>{state.antiGaspi.message}</Text>
-        </View>
-      ) : null}
-
-      {state.digest?.resume ? (
-        <View style={styles.digestCard}>
-          <Text style={styles.digestLabel}>AGENT FOYER</Text>
-          <Text style={styles.digestText}>{state.digest.resume}</Text>
-          {(state.digest.actions || [])
-            .filter((a) => a.statut === "propose")
-            .slice(0, 3)
-            .map((action) => (
-              <View key={action.id} style={styles.actionBlock}>
-                <Text style={styles.digestHint}>
-                  {action.message || action.type_action}
-                </Text>
-                <View style={styles.heroActions}>
-                  <Pressable
-                    style={styles.heroBtn}
-                    disabled={actingId === action.id}
-                    onPress={async () => {
-                      if (!profilId || !token) return;
-                      setActingId(action.id);
-                      try {
-                        await respondAgentAction(profilId, token, action.id, "accepte");
-                        if (action.type_action.includes("course")) {
-                          router.push("/courses" as Href);
-                        } else {
-                          await load();
-                        }
-                      } catch {
-                        /* ignore */
-                      } finally {
-                        setActingId(null);
-                      }
-                    }}
-                  >
-                    <Text style={styles.heroBtnText}>Accepter</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.heroBtn, styles.heroBtnGhost]}
-                    disabled={actingId === action.id}
-                    onPress={async () => {
-                      if (!profilId || !token) return;
-                      setActingId(action.id);
-                      try {
-                        await respondAgentAction(profilId, token, action.id, "refuse");
-                        await load();
-                      } catch {
-                        /* ignore */
-                      } finally {
-                        setActingId(null);
-                      }
-                    }}
-                  >
-                    <Text style={[styles.heroBtnText, { color: colors.brand }]}>
-                      Refuser
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-            ))}
-        </View>
-      ) : null}
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.carousel}
-        style={styles.carouselWrap}
-      >
-        <ActionCard
-          icon="restaurant-outline"
-          title="Je veux manger"
-          subtitle="Trouve une idée de repas"
-          tint={colors.brand}
-          onPress={() => router.push("/repas" as Href)}
-        />
-        <ActionCard
-          icon="calendar-outline"
-          title="Planning"
-          subtitle="Jour, semaine ou mois"
-          tint={colors.accent}
-          onPress={() => router.push("/planning" as Href)}
-        />
-        <ActionCard
-          icon="chatbubble-ellipses-outline"
-          title="Assistant"
-          subtitle="Pose ta question"
-          tint={colors.ok}
-          onPress={() => router.push("/chat" as Href)}
-        />
-        <ActionCard
-          icon="mic-outline"
-          title="Assistant vocal"
-          subtitle="Parle-lui directement"
-          tint={colors.accent}
-          onPress={() => router.push("/assistant-vocal" as Href)}
-        />
-      </ScrollView>
-
-      <Text style={styles.sectionTitle}>Vue d&apos;ensemble</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.statsRow}
-      >
-        <StatCard
-          label="En stock"
-          value={String(stockOk)}
-          hint="ingrédients > 0"
-        />
-        <StatCard
-          label="Rupture"
-          value={String(stockEmpty)}
-          hint="quantité à 0"
-          tone="accent"
-        />
-        <StatCard
-          label="Budget restant"
-          value={
-            state.budget
-              ? formatAr(state.budget.montant_restant, state.budget.devise)
-              : "n/a"
-          }
-          hint={
-            state.budget
-              ? `période : ${state.budget.periode}`
-              : "budget non trouvé"
-          }
-        />
-        <StatCard
-          label="Marché suggéré"
-          value={
-            state.market ? state.market.point_de_vente.nom : "Aucune suggestion"
-          }
-          hint={
-            state.market
-              ? `${formatAr(state.market.prix)} · ${state.market.itineraire?.niveau_securite ?? "n/a"}`
-              : "Ajoute du stock pour proposer un marché"
-          }
-        />
-      </ScrollView>
-
-      <Text style={styles.sectionTitle}>Accès rapide</Text>
-      <View style={styles.grid}>
-        <QuickTile
-          icon="cart-outline"
-          label="Liste de courses"
-          onPress={() => router.push("/courses" as Href)}
-        />
-        <QuickTile
-          icon="storefront-outline"
-          label="Marchés"
-          onPress={() => router.push("/market" as Href)}
-        />
-        <QuickTile
-          icon="map-outline"
-          label="Carte marchés"
-          onPress={() => router.push("/map" as Href)}
-        />
-        <QuickTile
-          icon="cube-outline"
-          label="Gérer mon stock"
+      {/* Signaux compacts — une ligne */}
+      <View style={styles.signalRow}>
+        <Pressable
+          style={styles.signal}
           onPress={() => router.push("/stock" as Href)}
-        />
-        <QuickTile
-          icon="book-outline"
-          label="Recettes"
-          onPress={() => router.push("/recettes" as Href)}
-        />
-        <QuickTile
-          icon="people-outline"
-          label="Coloc / foyer"
-          onPress={() => router.push("/foyer" as Href)}
-        />
+        >
+          <Text style={styles.signalValue}>
+            {state.peremption > 0 ? state.peremption : state.stock.filter((l) => l.quantite_disponible > 0).length}
+          </Text>
+          <Text style={styles.signalLabel}>
+            {state.peremption > 0 ? "à sauver" : "en stock"}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={styles.signal}
+          onPress={() => router.push("/courses" as Href)}
+        >
+          <Text style={styles.signalValue}>
+            {state.summary
+              ? formatAr(state.summary.montant_restant, state.summary.devise)
+              : "—"}
+          </Text>
+          <Text style={styles.signalLabel}>budget</Text>
+        </Pressable>
+        <Pressable
+          style={styles.signal}
+          onPress={() => router.push("/market" as Href)}
+        >
+          <Text style={styles.signalValue} numberOfLines={1}>
+            {state.market?.point_de_vente.nom?.split(" ")[0] || "Marché"}
+          </Text>
+          <Text style={styles.signalLabel}>
+            {state.market
+              ? formatAr(state.market.prix_crowd ?? state.market.prix)
+              : "près de toi"}
+          </Text>
+        </Pressable>
+        <Pressable style={styles.signal}>
+          <Text style={styles.signalValue}>
+            {state.antiGaspi ? `${state.antiGaspi.streak_jours}j` : "0"}
+          </Text>
+          <Text style={styles.signalLabel}>streak</Text>
+        </Pressable>
       </View>
-    </Screen>
-  );
-}
 
-function StatCard({
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-  tone?: "accent";
-}) {
-  return (
-    <View style={styles.statCard}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text
-        style={[
-          styles.statValue,
-          tone === "accent" && { color: colors.accent },
-        ]}
-        numberOfLines={1}
-      >
-        {value}
-      </Text>
-      <Text style={styles.statHint} numberOfLines={1}>
-        {hint}
-      </Text>
-    </View>
+      {/* Agent : seulement s'il y a une action */}
+      {pendingActions.length > 0 ? (
+        <View style={styles.agentCard}>
+          <Text style={styles.agentTitle}>Proposition KaliTao</Text>
+          <Text style={styles.agentBody}>
+            {pendingActions[0].message || pendingActions[0].type_action}
+          </Text>
+          <View style={styles.ctaRow}>
+            <Pressable
+              style={styles.ctaPrimarySmall}
+              disabled={actingId === pendingActions[0].id}
+              onPress={() => void respond(pendingActions[0].id, "accepte")}
+            >
+              <Text style={styles.ctaPrimaryTextLight}>OK</Text>
+            </Pressable>
+            <Pressable
+              style={styles.ctaGhost}
+              disabled={actingId === pendingActions[0].id}
+              onPress={() => void respond(pendingActions[0].id, "refuse")}
+            >
+              <Text style={styles.ctaGhostText}>Plus tard</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
+      {/* 4 raccourcis max */}
+      <View style={styles.shortcuts}>
+        {(
+          [
+            { icon: "mic-outline" as const, label: "Vocal", href: "/assistant-vocal" },
+            { icon: "cart-outline" as const, label: "Courses", href: "/courses" },
+            { icon: "calendar-outline" as const, label: "Planning", href: "/planning" },
+            { icon: "cube-outline" as const, label: "Stock", href: "/stock" },
+          ] as const
+        ).map((item) => (
+          <Pressable
+            key={item.href}
+            style={styles.shortcut}
+            onPress={() => router.push(item.href as Href)}
+          >
+            <Ionicons name={item.icon} size={22} color={colors.brand} />
+            <Text style={styles.shortcutLabel}>{item.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      <Pressable onPress={() => setShowMore((v) => !v)} style={styles.moreToggle}>
+        <Text style={styles.moreToggleText}>
+          {showMore ? "Moins" : "Plus d'accès"}
+        </Text>
+      </Pressable>
+
+      {showMore ? (
+        <View style={styles.moreGrid}>
+          {(
+            [
+              ["/market", "Marchés"],
+              ["/map", "Carte"],
+              ["/recettes", "Recettes"],
+              ["/foyer", "Coloc"],
+              ["/chat", "Chat"],
+              ["/repas", "Je mange"],
+            ] as const
+          ).map(([href, label]) => (
+            <Pressable
+              key={href}
+              style={styles.moreItem}
+              onPress={() => router.push(href as Href)}
+            >
+              <Text style={styles.moreItemText}>{label}</Text>
+            </Pressable>
+          ))}
+          <Pressable style={styles.moreItem} onPress={confirmReset}>
+            <Text style={[styles.moreItemText, { color: colors.danger }]}>
+              Reset onboarding
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </Screen>
   );
 }
 
@@ -503,118 +424,145 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  intro: { marginTop: space.xs, marginBottom: space.md },
-  heroCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: colors.line,
-    padding: space.md,
-    gap: 4,
-  },
-  heroLabel: {
-    fontSize: type.small,
-    color: colors.muted,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  heroValue: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: colors.ink,
-    marginTop: 4,
-  },
-  heroHint: { fontSize: type.small, color: colors.muted },
-  heroActions: { flexDirection: "row", gap: space.sm, marginTop: space.sm },
-  heroBtn: {
-    backgroundColor: colors.brand,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
-    borderRadius: radius.sm,
-  },
-  heroBtnGhost: {
-    backgroundColor: colors.brandSoft,
-  },
-  heroBtnText: { color: "#fff", fontWeight: "700", fontSize: type.label },
-  alertBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space.sm,
-    backgroundColor: "#F8E8E4",
-    padding: space.md,
-    borderRadius: radius.md,
-    marginBottom: space.sm,
-  },
-  alertText: { color: colors.danger, fontWeight: "600", flex: 1 },
-  budgetLine: {
-    fontSize: type.small,
-    color: colors.muted,
-    marginTop: space.sm,
-    marginBottom: space.sm,
-  },
-  digestCard: {
-    backgroundColor: colors.brandSoft,
-    borderRadius: radius.md,
-    padding: space.md,
-    gap: 4,
-    marginBottom: space.sm,
-  },
-  antiCard: {
-    backgroundColor: "#E8F2EA",
-    borderRadius: radius.md,
-    padding: space.md,
-    gap: 4,
-    marginBottom: space.sm,
-  },
-  actionBlock: { gap: 6, marginTop: space.xs },
-  digestLabel: {
-    fontSize: type.small,
-    color: colors.brand,
-    fontWeight: "700",
-    letterSpacing: 0.4,
-  },
-  digestText: { fontSize: type.body, color: colors.ink, fontWeight: "600" },
-  digestHint: { fontSize: type.small, color: colors.muted },
-  carouselWrap: { marginHorizontal: -space.lg },
-  carousel: { gap: space.sm, paddingHorizontal: space.lg },
-  sectionTitle: {
-    fontSize: type.body,
-    fontWeight: "700",
-    color: colors.ink,
-    marginBottom: -space.xs,
-  },
-  statsRow: { gap: space.sm, paddingRight: space.md },
-  statCard: {
-    width: 150,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.line,
-    padding: space.md,
-    gap: 4,
-  },
-  statLabel: {
-    fontSize: type.small,
-    color: colors.muted,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: colors.ink,
-    marginTop: 4,
-  },
-  statHint: { fontSize: type.small, color: colors.muted },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
+  intro: { marginTop: space.xs, marginBottom: space.sm },
   error: {
     color: colors.danger,
     backgroundColor: "#F8E8E4",
     padding: space.md,
     borderRadius: 12,
     fontSize: type.body,
-    marginBottom: space.md,
+    marginBottom: space.sm,
   },
+  hero: {
+    backgroundColor: colors.brand,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    gap: space.sm,
+    marginTop: space.sm,
+  },
+  heroEyebrow: {
+    color: "rgba(255,255,255,0.7)",
+    fontSize: type.small,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  heroTitle: {
+    color: "#fff",
+    fontSize: 28,
+    fontWeight: "800",
+    lineHeight: 32,
+  },
+  heroMeta: { color: "rgba(255,255,255,0.85)", fontSize: type.body },
+  heroMsg: { color: "rgba(255,255,255,0.75)", fontSize: type.small, marginTop: 2 },
+  heroCtas: { gap: space.sm, marginTop: space.sm },
+  ctaPrimary: {
+    backgroundColor: "#fff",
+    borderRadius: radius.md,
+    minHeight: 52,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ctaPrimarySmall: {
+    flex: 1,
+    backgroundColor: colors.brand,
+    borderRadius: radius.md,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ctaDisabled: { opacity: 0.5 },
+  ctaPrimaryText: { color: colors.brand, fontWeight: "800", fontSize: type.body },
+  ctaPrimaryTextLight: { color: "#fff", fontWeight: "800", fontSize: type.body },
+  ctaRow: { flexDirection: "row", gap: space.sm },
+  ctaSecondary: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.45)",
+    borderRadius: radius.md,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  ctaSecondaryText: { color: "#fff", fontWeight: "700", fontSize: type.label },
+  ctaGhost: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+  },
+  ctaGhostText: { color: colors.brand, fontWeight: "700", fontSize: type.label },
+  signalRow: {
+    flexDirection: "row",
+    gap: space.sm,
+    marginTop: space.md,
+  },
+  signal: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+    paddingVertical: space.sm,
+    paddingHorizontal: 6,
+    alignItems: "center",
+    gap: 2,
+  },
+  signalValue: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.ink,
+  },
+  signalLabel: {
+    fontSize: 10,
+    color: colors.muted,
+    fontWeight: "600",
+    textTransform: "uppercase",
+  },
+  agentCard: {
+    marginTop: space.md,
+    backgroundColor: colors.brandSoft,
+    borderRadius: radius.md,
+    padding: space.md,
+    gap: space.sm,
+  },
+  agentTitle: {
+    fontSize: type.small,
+    fontWeight: "800",
+    color: colors.brand,
+    letterSpacing: 0.4,
+  },
+  agentBody: { fontSize: type.body, color: colors.ink, fontWeight: "600" },
+  shortcuts: {
+    flexDirection: "row",
+    gap: space.sm,
+    marginTop: space.lg,
+  },
+  shortcut: {
+    flex: 1,
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: space.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  shortcutLabel: { fontSize: type.small, fontWeight: "700", color: colors.ink },
+  moreToggle: { alignItems: "center", marginTop: space.md, padding: space.sm },
+  moreToggleText: { color: colors.muted, fontWeight: "700", fontSize: type.label },
+  moreGrid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
+  moreItem: {
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+  },
+  moreItemText: { fontSize: type.label, fontWeight: "600", color: colors.ink },
 });

@@ -25,6 +25,8 @@ class MarketMatchOut(BaseModel):
     prix: float
     itineraire: Optional[ItineraireOut] = None
     deprioritise: bool = False
+    prix_crowd: Optional[float] = None
+    ecart_crowd_pct: Optional[float] = None
 
 
 class PointDeVenteProcheOut(BaseModel):

@@ -9,6 +9,8 @@ POINTS_DE_VENTE = [
     ("Marche 67ha Sud", "epicerie", -18.8820, 47.5185, False),
 ]
 
+# Références saisonnières approximatives (Ar/kg ou unité catalogue) pour Antananarivo.
+# Affinées en runtime via PriceIndex crowd (voir market_service.find_nearby_market).
 PRIX_BASE = {
     "riz": 2500,
     "bredes mafana": 1500,

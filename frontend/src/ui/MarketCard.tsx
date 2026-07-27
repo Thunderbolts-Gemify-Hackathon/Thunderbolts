@@ -44,8 +44,11 @@ export function MarketCard({
   onVoirTrajet,
   real,
 }: Props) {
-  const { point_de_vente: pdv, itineraire, prix, deprioritise } = match;
+  const { point_de_vente: pdv, itineraire, prix, deprioritise, prix_crowd, ecart_crowd_pct } =
+    match;
   const securite = itineraire?.niveau_securite ?? "inconnu";
+  const displayPrix = prix_crowd ?? prix;
+  const hasCrowd = prix_crowd != null && Number.isFinite(prix_crowd);
 
   const trajetLabel = real
     ? `Trajet réel : ${formatDistanceM(real.distanceM)} · ${formatDureeS(real.durationS)}`
@@ -66,7 +69,9 @@ export function MarketCard({
         : "";
     const phrase = [
       `${pdv.nom}.`,
-      `Prix indicatif ${Math.round(prix)} ariary.`,
+      hasCrowd
+        ? `Prix crowd ${Math.round(prix_crowd!)} ariary.`
+        : `Prix indicatif ${Math.round(prix)} ariary.`,
       distancePhrase,
       deprioritise ? "Attention, trajet a eviter." : "",
     ]
@@ -92,7 +97,17 @@ export function MarketCard({
         ) : null}
       </View>
 
-      <Text style={styles.prix}>{formatAr(prix)}</Text>
+      <Text style={styles.prix}>{formatAr(displayPrix)}</Text>
+      {hasCrowd ? (
+        <Text style={styles.prixHint}>
+          Crowd · catalogue {formatAr(prix)}
+          {ecart_crowd_pct != null
+            ? ` · ${ecart_crowd_pct > 0 ? "+" : ""}${Math.round(ecart_crowd_pct)}%`
+            : ""}
+        </Text>
+      ) : (
+        <Text style={styles.prixHint}>Prix catalogue</Text>
+      )}
 
       {trajetLabel ? (
         <View style={styles.trajetRow}>
@@ -167,6 +182,7 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: "#F7F3EA", fontSize: 11, fontWeight: "700" },
   prix: { fontSize: 22, fontWeight: "800", color: colors.ink },
+  prixHint: { fontSize: type.small, color: colors.muted, fontWeight: "600" },
   trajetRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4 },
   trajet: { fontSize: type.small, color: colors.muted, fontWeight: "600" },
