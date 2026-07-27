@@ -1,0 +1,41 @@
+{"ts": "2026-07-27T20:17:22.052392+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:17:22.053306+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:17:22.053870+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:17:22.054511+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:17:22.055043+00:00", "event": "json_parse_fail", "detail": {"preview": "pas du json du tout"}}
+{"ts": "2026-07-27T20:17:22.055173+00:00", "event": "json_parse_fail", "detail": {"preview": ""}}
+{"ts": "2026-07-27T20:17:22.055280+00:00", "event": "json_parse_fail", "detail": {"preview": "42"}}
+{"ts": "2026-07-27T20:17:28.358390+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:17:28.359899+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:17:28.360599+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:17:28.361546+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:17:28.362322+00:00", "event": "json_parse_fail", "detail": {"preview": "pas du json du tout"}}
+{"ts": "2026-07-27T20:17:28.362532+00:00", "event": "json_parse_fail", "detail": {"preview": ""}}
+{"ts": "2026-07-27T20:17:28.362666+00:00", "event": "json_parse_fail", "detail": {"preview": "42"}}
+{"ts": "2026-07-27T20:17:28.380285+00:00", "event": "tool_ok", "profil_id": "e7e11bb9-2657-431c-9a96-21c7619a0bb3", "detail": {"tool": "find_nearest_supermarkets"}}
+{"ts": "2026-07-27T20:17:28.394631+00:00", "event": "tool_fail", "profil_id": "c4f7c538-4b02-40e8-99e3-cdfc57022bc4", "detail": {"tool": "find_nearest_supermarkets", "error": "Localisation manquante pour ce profil"}}
+{"ts": "2026-07-27T20:17:28.416682+00:00", "event": "tool_ok", "profil_id": "ad0276c5-99c9-40bb-8ca0-429867b66465", "detail": {"tool": "find_nearby_market"}}
+{"ts": "2026-07-27T20:17:28.430029+00:00", "event": "tool_fail", "profil_id": "7d9363e7-95cc-41cf-ba42-6c76acd06049", "detail": {"tool": "outil_inexistant", "error": "Outil inconnu: outil_inexistant"}}
+{"ts": "2026-07-27T20:17:30.367246+00:00", "event": "ce_soir", "profil_id": "0a5543a5-e709-4443-86eb-10b7f327f8e3", "detail": {"recette_id": "cda2f315-e6c4-49f1-8f52-7d270089858a", "type_repas": "diner"}}
+{"ts": "2026-07-27T20:17:30.423869+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:17:30.447279+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:17:30.468864+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:17:30.489547+00:00", "event": "json_parse_fail", "detail": {"preview": "1. Faire cuire le riz.\n2. Ajouter le poulet."}}
+{"ts": "2026-07-27T20:17:30.641439+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:20:09.410489+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:20:09.412652+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:20:09.413340+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:20:09.414039+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:20:09.414600+00:00", "event": "json_parse_fail", "detail": {"preview": "pas du json du tout"}}
+{"ts": "2026-07-27T20:20:09.414745+00:00", "event": "json_parse_fail", "detail": {"preview": ""}}
+{"ts": "2026-07-27T20:20:09.414862+00:00", "event": "json_parse_fail", "detail": {"preview": "42"}}
+{"ts": "2026-07-27T20:20:09.434490+00:00", "event": "tool_ok", "profil_id": "201b0661-ee68-408d-ab3e-57f5223ad957", "detail": {"tool": "find_nearest_supermarkets"}}
+{"ts": "2026-07-27T20:20:09.452554+00:00", "event": "tool_fail", "profil_id": "58727383-576d-43da-b221-2b280a0c6665", "detail": {"tool": "find_nearest_supermarkets", "error": "Localisation manquante pour ce profil"}}
+{"ts": "2026-07-27T20:20:09.481896+00:00", "event": "tool_ok", "profil_id": "32d540b2-c948-4f2c-89a9-3a01e573d315", "detail": {"tool": "find_nearby_market"}}
+{"ts": "2026-07-27T20:20:09.501355+00:00", "event": "tool_fail", "profil_id": "644ef324-81f4-4a14-bbe8-15b206475c70", "detail": {"tool": "outil_inexistant", "error": "Outil inconnu: outil_inexistant"}}
+{"ts": "2026-07-27T20:20:12.013467+00:00", "event": "ce_soir", "profil_id": "bd0f86c8-3845-4f00-b22a-6e66edd0af68", "detail": {"recette_id": "5b6a33e8-0301-4298-a815-6b5c42b7500b", "type_repas": "diner"}}
+{"ts": "2026-07-27T20:20:12.072644+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:20:12.096344+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:20:12.118836+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:20:12.140257+00:00", "event": "json_parse_fail", "detail": {"preview": "1. Faire cuire le riz.\n2. Ajouter le poulet."}}
+{"ts": "2026-07-27T20:20:12.262684+00:00", "event": "json_parse_ok"}
