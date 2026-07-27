@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { postChat, type ChatMessage } from "@/api/chat";
 import { ApiError } from "@/api/http";
+import { loadAppSettings } from "@/lib/appSettings";
 import { listenOnce, pushToTalk, speakTracked, stopSpeaking } from "@/lib/speech";
 import { useOnboarding } from "@/onboarding/store";
 import { useSession } from "@/session/SessionContext";
@@ -44,6 +45,7 @@ export default function AssistantVocalScreen() {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showInput, setShowInput] = useState(Platform.OS !== "web");
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
 
   const breathe = useRef(new Animated.Value(1)).current;
   const dot0 = useRef(new Animated.Value(0)).current;
@@ -52,6 +54,18 @@ export default function AssistantVocalScreen() {
 
   const busy = phase === "thinking" || phase === "listening";
   const localise = Boolean(session?.localisationLat) || Boolean(data.localisation.quartier);
+
+  useEffect(() => {
+    void loadAppSettings().then((s) => {
+      setVoiceEnabled(s.voiceEnabled);
+      if (!s.voiceEnabled) return;
+      speakTracked(GREETING, {
+        onStart: () => setPhase("speaking"),
+        onDone: () => setPhase("idle"),
+      });
+    });
+    return () => stopSpeaking();
+  }, []);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -88,15 +102,6 @@ export default function AssistantVocalScreen() {
     return () => anims.forEach((a) => a.stop());
   }, [phase, dot0, dot1, dot2]);
 
-  useEffect(() => {
-    speakTracked(GREETING, {
-      onStart: () => setPhase("speaking"),
-      onDone: () => setPhase("idle"),
-    });
-    return () => stopSpeaking();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const sendMessage = async (raw: string) => {
     const message = raw.trim();
     if (!message || !profilId || !token || busy) return;
@@ -109,19 +114,25 @@ export default function AssistantVocalScreen() {
       const historique = transcript.slice(-8);
       const res = await postChat(profilId, token, message, historique, true);
       setTranscript((prev) => [...prev, { role: "assistant", content: res.reponse }]);
-      speakTracked(res.reponse, {
-        onStart: () => setPhase("speaking"),
-        onDone: () => setPhase("idle"),
-      });
+      if (voiceEnabled) {
+        speakTracked(res.reponse, {
+          onStart: () => setPhase("speaking"),
+          onDone: () => setPhase("idle"),
+        });
+      } else {
+        setPhase("idle");
+      }
     } catch (e) {
       const detail =
         e instanceof ApiError ? e.detail : "Je n'ai pas pu répondre, vérifie Ollama / Gemma.";
       setError(detail);
       setPhase("idle");
-      speakTracked("Désolé, je n'ai pas pu répondre. " + detail, {
-        onStart: () => setPhase("speaking"),
-        onDone: () => setPhase("idle"),
-      });
+      if (voiceEnabled) {
+        speakTracked("Désolé, je n'ai pas pu répondre. " + detail, {
+          onStart: () => setPhase("speaking"),
+          onDone: () => setPhase("idle"),
+        });
+      }
     }
   };
 

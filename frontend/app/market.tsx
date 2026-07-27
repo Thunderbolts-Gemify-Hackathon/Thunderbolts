@@ -5,12 +5,14 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
 import { ApiError } from "@/api/http";
 import { findNearbyMarket, formatAr, type MarketMatch } from "@/api/market";
 import { QUARTIER_COORDS } from "@/api/onboarding";
+import { createPriceReport, getPriceIndex, type PriceIndex } from "@/api/prices";
 import { listIngredients, type Ingredient } from "@/api/stock";
 import { useOnboarding } from "@/onboarding/store";
 import { useSession } from "@/session/SessionContext";
@@ -25,6 +27,7 @@ export default function MarketScreen() {
   const { session } = useSession();
   const { data } = useOnboarding();
   const token = session?.apiToken;
+  const profilId = session?.profilId;
 
   const quartier = data.localisation.quartier;
   const coords = quartier ? QUARTIER_COORDS[quartier] : null;
@@ -34,15 +37,35 @@ export default function MarketScreen() {
   const [catalog, setCatalog] = useState<Ingredient[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(prefId);
   const [matches, setMatches] = useState<MarketMatch[]>([]);
+  const [crowdIndex, setCrowdIndex] = useState<PriceIndex | null>(null);
+  const [reportPrix, setReportPrix] = useState("");
+  const [reporting, setReporting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [okMsg, setOkMsg] = useState<string | null>(null);
   const [autoSearched, setAutoSearched] = useState(false);
 
   const selected = useMemo(
     () => catalog.find((i) => i.id === selectedId) ?? null,
     [catalog, selectedId],
   );
+
+  const loadCrowd = useCallback(async () => {
+    if (!selectedId || !quartier) {
+      setCrowdIndex(null);
+      return;
+    }
+    try {
+      const idx = await getPriceIndex({
+        quartier,
+        ingredient_id: selectedId,
+      });
+      setCrowdIndex(idx);
+    } catch {
+      setCrowdIndex(null);
+    }
+  }, [selectedId, quartier]);
 
   const search = useCallback(async () => {
     if (!selectedId || !coords) {
@@ -58,6 +81,7 @@ export default function MarketScreen() {
     try {
       const rows = await findNearbyMarket(selectedId, coords.lat, coords.lon);
       setMatches(rows);
+      await loadCrowd();
       if (rows.length === 0) {
         setError("Aucun point de vente dans le rayon.");
       }
@@ -67,7 +91,34 @@ export default function MarketScreen() {
     } finally {
       setSearching(false);
     }
-  }, [selectedId, coords]);
+  }, [selectedId, coords, loadCrowd]);
+
+  const submitPrice = async () => {
+    if (!profilId || !token || !selectedId || !quartier) return;
+    const prix = Number(reportPrix);
+    if (!Number.isFinite(prix) || prix <= 0) {
+      setError("Indique un prix positif en Ariary.");
+      return;
+    }
+    setReporting(true);
+    setError(null);
+    setOkMsg(null);
+    try {
+      await createPriceReport(profilId, token, {
+        ingredient_id: selectedId,
+        quartier,
+        prix,
+        unite: "kg",
+      });
+      setReportPrix("");
+      setOkMsg("Prix signalé. Merci !");
+      await loadCrowd();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.detail : "Envoi impossible");
+    } finally {
+      setReporting(false);
+    }
+  };
 
   useEffect(() => {
     if (!token) {
@@ -161,6 +212,38 @@ export default function MarketScreen() {
 
       {selected ? <Body>Recherche pour : {selected.nom}</Body> : null}
 
+      {crowdIndex ? (
+        <View style={styles.crowdCard}>
+          <Text style={styles.section}>Prix quartier (crowd)</Text>
+          <Text style={styles.nom}>
+            {formatAr(crowdIndex.prix_moyen)} / {selected?.nom}
+          </Text>
+          <Text style={styles.meta}>
+            {crowdIndex.nb_rapports} signalement(s) · {crowdIndex.quartier}
+          </Text>
+        </View>
+      ) : null}
+
+      {quartier && selectedId ? (
+        <View style={styles.reportBox}>
+          <Text style={styles.section}>Signaler un prix vu au marché</Text>
+          <TextInput
+            value={reportPrix}
+            onChangeText={setReportPrix}
+            keyboardType="numeric"
+            placeholder="Prix en Ar (ex. 3000)"
+            placeholderTextColor={colors.muted}
+            style={styles.input}
+          />
+          <Button
+            label={reporting ? "Envoi…" : "Envoyer ce prix"}
+            onPress={() => void submitPrice()}
+            disabled={reporting}
+          />
+          {okMsg ? <Text style={styles.ok}>{okMsg}</Text> : null}
+        </View>
+      ) : null}
+
       {matches.map((m, idx) => (
         <View
           key={`${m.point_de_vente.nom}-${idx}`}
@@ -218,6 +301,24 @@ const styles = StyleSheet.create({
   nom: { fontSize: type.body, fontWeight: "700", color: colors.ink },
   meta: { fontSize: type.small, color: colors.muted },
   warn: { fontSize: type.small, color: colors.accent, fontWeight: "700" },
+  crowdCard: {
+    backgroundColor: colors.brandSoft,
+    borderRadius: radius.md,
+    padding: space.md,
+    gap: 4,
+  },
+  reportBox: { gap: space.sm, marginTop: space.sm },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    fontSize: type.body,
+    color: colors.ink,
+  },
+  ok: { color: colors.ok, fontSize: type.small, fontWeight: "600" },
   error: {
     color: colors.danger,
     backgroundColor: "#F8E8E4",

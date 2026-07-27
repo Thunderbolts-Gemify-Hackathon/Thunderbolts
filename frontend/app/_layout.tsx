@@ -11,6 +11,8 @@ import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { getMonProfilComplet } from "@/api/onboarding";
+import { getNotificationPrefs } from "@/api/notifications";
+import { scheduleFromPreferences } from "@/lib/notifications";
 import { hydrationFromComplet } from "@/onboarding/hydrate";
 import { OnboardingProvider, useOnboarding } from "@/onboarding/store";
 import { SessionProvider, useSession } from "@/session/SessionContext";
@@ -50,6 +52,12 @@ function useAppBoot() {
           hydrationFromComplet(complet);
         hydrate(data, done, resumeStep);
         void patchSession(sessionPatch);
+        const profilId = sessionPatch.profilId || session.profilId;
+        if (profilId && session.apiToken) {
+          void getNotificationPrefs(profilId, session.apiToken)
+            .then((prefs) => scheduleFromPreferences(prefs))
+            .catch(() => undefined);
+        }
       })
       .catch(() => {
         /* pas de profil encore (404) ou backend inatteignable : on continue

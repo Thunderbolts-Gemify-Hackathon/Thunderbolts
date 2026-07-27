@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { postRepasFeedback } from "@/api/feedback";
 import { validerRepas } from "@/api/planning";
 import { useHandCoverGesture } from "@/lib/handGesture";
 import { getCachedContext, getCachedRecette } from "@/lib/recipeCache";
@@ -230,6 +231,20 @@ export default function ModeCuisineScreen() {
       }
     }
     router.back();
+  };
+
+  const onFeedback = async (note: 1 | -1) => {
+    if (profilId && token && recette?.id) {
+      try {
+        await postRepasFeedback(profilId, token, {
+          recette_id: recette.id,
+          note,
+        });
+      } catch {
+        /* non bloquant */
+      }
+    }
+    await onFinish();
   };
 
   if (!recette) {
@@ -529,8 +544,24 @@ export default function ModeCuisineScreen() {
             </View>
             <Text style={styles.guideTitle}>Bravo, c'est prêt !</Text>
             <Text style={styles.guideBody}>
-              {recette.nom} est cuisiné. Bon appétit !
+              {recette.nom} est cuisiné. Bon appétit ! Tu as aimé ce plat ?
             </Text>
+            <View style={styles.feedbackRow}>
+              <Pressable
+                onPress={() => void onFeedback(1)}
+                style={styles.feedbackBtn}
+              >
+                <Text style={styles.feedbackLabel}>J'aime</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void onFeedback(-1)}
+                style={[styles.feedbackBtn, styles.feedbackBtnGhost]}
+              >
+                <Text style={[styles.feedbackLabel, { color: colors.brand }]}>
+                  Pas top
+                </Text>
+              </Pressable>
+            </View>
             <Pressable onPress={() => void onFinish()} style={styles.guideBtn}>
               <Text style={styles.guideBtnLabel}>Terminer</Text>
             </Pressable>
@@ -850,6 +881,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   guideBtnLabel: { fontSize: 16, fontWeight: "700", color: "#F7F3EA" },
+  feedbackRow: { flexDirection: "row", gap: space.sm, width: "100%" },
+  feedbackBtn: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 999,
+    backgroundColor: colors.brand,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  feedbackBtnGhost: { backgroundColor: colors.brandSoft },
+  feedbackLabel: { fontSize: 15, fontWeight: "700", color: "#F7F3EA" },
   quitCard: {
     width: "100%",
     maxWidth: 340,

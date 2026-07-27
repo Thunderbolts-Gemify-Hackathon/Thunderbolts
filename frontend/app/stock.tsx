@@ -21,6 +21,7 @@ import {
   type StockLine,
   type Unite,
 } from "@/api/stock";
+import { importStockText, type StockImportLine } from "@/api/stockImport";
 import { useSession } from "@/session/SessionContext";
 import { Button } from "@/ui/Button";
 import { Screen } from "@/ui/Screen";
@@ -83,6 +84,9 @@ export default function StockScreen() {
   const [newNom, setNewNom] = useState("");
   const [newUnite, setNewUnite] = useState<Unite>("g");
   const [creatingProduct, setCreatingProduct] = useState(false);
+  const [importText, setImportText] = useState("");
+  const [importPreview, setImportPreview] = useState<StockImportLine[] | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const byId = useMemo(() => nameById(catalog), [catalog]);
   const selected = selectedId ? byId[selectedId] : undefined;
@@ -178,6 +182,42 @@ export default function StockScreen() {
     }
   };
 
+  const previewImport = async () => {
+    if (!profilId || !token || !importText.trim()) return;
+    setImporting(true);
+    setError(null);
+    try {
+      const res = await importStockText(profilId, token, {
+        text: importText,
+        apply: false,
+      });
+      setImportPreview(res.lines);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.detail : "Analyse impossible");
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const applyImport = async () => {
+    if (!profilId || !token || !importText.trim()) return;
+    setImporting(true);
+    setError(null);
+    try {
+      const res = await importStockText(profilId, token, {
+        text: importText,
+        apply: true,
+      });
+      setImportPreview(res.lines);
+      setImportText("");
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.detail : "Import impossible");
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const groupedLines = useMemo(() => {
     const groups = new Map<UnitGroupKey, StockLine[]>();
     for (const line of lines) {
@@ -205,6 +245,39 @@ export default function StockScreen() {
 
       {loading ? <ActivityIndicator color={colors.brand} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
+
+      <Text style={styles.section}>Import rapide (texte)</Text>
+      <TextInput
+        value={importText}
+        onChangeText={setImportText}
+        placeholder={"tomate 500g\nriz 1kg\noeufs 6"}
+        placeholderTextColor={colors.muted}
+        style={[styles.input, styles.importBox]}
+        multiline
+      />
+      <View style={styles.importActions}>
+        <Button
+          label={importing ? "…" : "Aperçu"}
+          variant="ghost"
+          onPress={() => void previewImport()}
+          disabled={importing || !importText.trim()}
+        />
+        <Button
+          label={importing ? "Import…" : "Appliquer au stock"}
+          onPress={() => void applyImport()}
+          disabled={importing || !importText.trim()}
+        />
+      </View>
+      {importPreview ? (
+        <View style={styles.card}>
+          {importPreview.map((line, i) => (
+            <Text key={`${line.label}-${i}`} style={styles.meta}>
+              {line.matched ? "✓" : "?"} {line.label} · {line.quantite}
+              {line.unite}
+            </Text>
+          ))}
+        </View>
+      ) : null}
 
       <Text style={styles.section}>Produit</Text>
       <View style={styles.chips}>
@@ -379,9 +452,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radius.sm,
     paddingHorizontal: space.md,
+    paddingVertical: space.sm,
     fontSize: type.body,
     color: colors.ink,
   },
+  importBox: { minHeight: 90, textAlignVertical: "top" },
+  importActions: { flexDirection: "row", gap: space.sm, flexWrap: "wrap" },
+  meta: { fontSize: type.small, color: colors.muted },
   card: {
     backgroundColor: colors.surface,
     borderWidth: 1,

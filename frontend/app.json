@@ -53,6 +53,13 @@
         {
           "cameraPermission": "Kaly Tao utilise la caméra pour passer les étapes de recette sans toucher l'écran (mode cuisine mains libres)."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#1F3D2B",
+          "defaultChannel": "default"
+        }
       ]
     ],
     "experiments": {

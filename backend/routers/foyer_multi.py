@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.deps import require_profil_owner
+from backend.deps import get_current_utilisateur, require_profil_owner
 from backend.models.foyer import Foyer
 from backend.models.profil import Profil
+from backend.models.utilisateur import Utilisateur
 from backend.schemas.foyer_multi import FoyerInviteCreate, FoyerInviteOut, FoyerMembreLienOut
 from backend.services import foyer_multi_service
 
@@ -30,5 +31,33 @@ def invite_membre(
 ):
     try:
         return foyer_multi_service.create_invite(db, profil.id, role=payload.role)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/invite/{invite_token}/accept", response_model=FoyerMembreLienOut)
+def accept_invite(
+    invite_token: str,
+    utilisateur: Utilisateur = Depends(get_current_utilisateur),
+    db: Session = Depends(get_db),
+):
+    try:
+        return foyer_multi_service.accept_invite(db, invite_token, utilisateur.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.delete("/{profil_id}/membres/{lien_id}", status_code=204)
+def revoke_membre(
+    lien_id: str,
+    profil: Profil = Depends(require_profil_owner),
+    utilisateur: Utilisateur = Depends(get_current_utilisateur),
+    db: Session = Depends(get_db),
+):
+    foyer = db.query(Foyer).filter(Foyer.profil_id == profil.id).first()
+    if not foyer:
+        raise HTTPException(status_code=404, detail="Foyer introuvable")
+    try:
+        foyer_multi_service.revoke_lien(db, foyer.id, lien_id, utilisateur.id)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

@@ -21,7 +21,8 @@ import {
   type Planning,
   type StockLine,
 } from "@/api/dashboard";
-import { getAgentDigest, type AgentDigest } from "@/api/agent";
+import { getAgentDigest, respondAgentAction, type AgentDigest } from "@/api/agent";
+import { getAntiGaspi, type AntiGaspi } from "@/api/antiGaspi";
 import { getCeSoir, type CeSoirSuggestion } from "@/api/ceSoir";
 import { ApiError } from "@/api/http";
 import { QUARTIER_COORDS } from "@/api/onboarding";
@@ -45,6 +46,7 @@ type DashState = {
   market: MarketMatch | null;
   ceSoir: CeSoirSuggestion | null;
   digest: AgentDigest | null;
+  antiGaspi: AntiGaspi | null;
   peremption: number;
   error: string | null;
 };
@@ -62,9 +64,11 @@ export default function DashboardScreen() {
     market: null,
     ceSoir: null,
     digest: null,
+    antiGaspi: null,
     peremption: 0,
     error: null,
   });
+  const [actingId, setActingId] = useState<string | null>(null);
 
   const name = session?.prenom || "toi";
   const profilId = session?.profilId;
@@ -82,7 +86,7 @@ export default function DashboardScreen() {
 
     setLoading(true);
     try {
-      const [budget, stock, planning, ceSoir, peremption, summary, digest] =
+      const [budget, stock, planning, ceSoir, peremption, summary, digest, antiGaspi] =
         await Promise.all([
           getBudget(profilId, token).catch((e) => {
             if (e instanceof ApiError && e.status === 404) return null;
@@ -100,6 +104,7 @@ export default function DashboardScreen() {
           getAlertesPeremption(profilId, token).catch(() => []),
           getBudgetSummary(profilId, token).catch(() => null),
           getAgentDigest(profilId, token).catch(() => null),
+          getAntiGaspi(profilId, token).catch(() => null),
         ]);
 
       let market: MarketMatch | null = null;
@@ -139,6 +144,7 @@ export default function DashboardScreen() {
         market,
         ceSoir,
         digest,
+        antiGaspi,
         peremption: peremption.length,
         error: null,
       });
@@ -268,13 +274,75 @@ export default function DashboardScreen() {
         </Text>
       ) : null}
 
+      {state.antiGaspi ? (
+        <View style={styles.antiCard}>
+          <Text style={styles.digestLabel}>ANTI-GASPI</Text>
+          <Text style={styles.digestText}>
+            {Math.round(state.antiGaspi.ariary_sauves)} Ar sauvés · streak{" "}
+            {state.antiGaspi.streak_jours} j
+          </Text>
+          <Text style={styles.digestHint}>{state.antiGaspi.message}</Text>
+        </View>
+      ) : null}
+
       {state.digest?.resume ? (
         <View style={styles.digestCard}>
           <Text style={styles.digestLabel}>AGENT FOYER</Text>
           <Text style={styles.digestText}>{state.digest.resume}</Text>
-          {state.digest.actions?.[0]?.message ? (
-            <Text style={styles.digestHint}>{state.digest.actions[0].message}</Text>
-          ) : null}
+          {(state.digest.actions || [])
+            .filter((a) => a.statut === "propose")
+            .slice(0, 3)
+            .map((action) => (
+              <View key={action.id} style={styles.actionBlock}>
+                <Text style={styles.digestHint}>
+                  {action.message || action.type_action}
+                </Text>
+                <View style={styles.heroActions}>
+                  <Pressable
+                    style={styles.heroBtn}
+                    disabled={actingId === action.id}
+                    onPress={async () => {
+                      if (!profilId || !token) return;
+                      setActingId(action.id);
+                      try {
+                        await respondAgentAction(profilId, token, action.id, "accepte");
+                        if (action.type_action.includes("course")) {
+                          router.push("/courses" as Href);
+                        } else {
+                          await load();
+                        }
+                      } catch {
+                        /* ignore */
+                      } finally {
+                        setActingId(null);
+                      }
+                    }}
+                  >
+                    <Text style={styles.heroBtnText}>Accepter</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.heroBtn, styles.heroBtnGhost]}
+                    disabled={actingId === action.id}
+                    onPress={async () => {
+                      if (!profilId || !token) return;
+                      setActingId(action.id);
+                      try {
+                        await respondAgentAction(profilId, token, action.id, "refuse");
+                        await load();
+                      } catch {
+                        /* ignore */
+                      } finally {
+                        setActingId(null);
+                      }
+                    }}
+                  >
+                    <Text style={[styles.heroBtnText, { color: colors.brand }]}>
+                      Refuser
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
         </View>
       ) : null}
 
@@ -384,6 +452,11 @@ export default function DashboardScreen() {
           label="Recettes"
           onPress={() => router.push("/recettes" as Href)}
         />
+        <QuickTile
+          icon="people-outline"
+          label="Coloc / foyer"
+          onPress={() => router.push("/foyer" as Href)}
+        />
       </View>
     </Screen>
   );
@@ -487,6 +560,14 @@ const styles = StyleSheet.create({
     gap: 4,
     marginBottom: space.sm,
   },
+  antiCard: {
+    backgroundColor: "#E8F2EA",
+    borderRadius: radius.md,
+    padding: space.md,
+    gap: 4,
+    marginBottom: space.sm,
+  },
+  actionBlock: { gap: 6, marginTop: space.xs },
   digestLabel: {
     fontSize: type.small,
     color: colors.brand,
