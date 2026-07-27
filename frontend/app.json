@@ -60,6 +60,13 @@
           "color": "#1F3D2B",
           "defaultChannel": "default"
         }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Kaly Tao utilise le micro pour l'assistant vocal.",
+          "speechRecognitionPermission": "Kaly Tao utilise la reconnaissance vocale pour comprendre tes demandes."
+        }
       ]
     ],
     "experiments": {

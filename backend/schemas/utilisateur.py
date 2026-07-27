@@ -32,3 +32,15 @@ class UtilisateurOut(BaseModel):
     email: str
     date_naissance: date
     api_token: str
+
+
+class JwtTokenOut(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    api_token: str
+    utilisateur: UtilisateurOut
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str

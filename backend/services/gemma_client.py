@@ -380,4 +380,28 @@ class GemmaClient:
 
         return self._normalize_gemma4(data)
 
+    def chat_image(self, messages: list[dict], image_base64: str, mime_type: str) -> dict:
+        """Chat multimodal (image + texte) pour OCR stock — même API Gemma4/Gemini."""
+        if not self.gemma4_api_key:
+            raise RuntimeError("GEMMA4_API_KEY manquante — l'OCR image nécessite l'API Gemma4")
+
+        contents, system = self._to_gemma4_contents(messages)
+        if contents and contents[-1]["role"] == "user":
+            contents[-1]["parts"].append(
+                {"inlineData": {"mimeType": mime_type, "data": image_base64}}
+            )
+
+        body: dict[str, Any] = {"contents": contents}
+        if system:
+            body["systemInstruction"] = {"parts": [{"text": system}]}
+
+        with httpx.Client(timeout=60.0) as client:
+            response = client.post(
+                self._gemma4_url(), params={"key": self.gemma4_api_key}, json=body
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        return self._normalize_gemma4(data)
+
 

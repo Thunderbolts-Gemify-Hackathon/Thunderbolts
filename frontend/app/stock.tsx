@@ -22,6 +22,7 @@ import {
   type Unite,
 } from "@/api/stock";
 import { importStockText, type StockImportLine } from "@/api/stockImport";
+import { enqueueMutation } from "@/lib/offlineQueue";
 import { useSession } from "@/session/SessionContext";
 import { Button } from "@/ui/Button";
 import { Screen } from "@/ui/Screen";
@@ -67,7 +68,7 @@ function daysUntil(dateIso: string | null): number | null {
 export default function StockScreen() {
   const router = useRouter();
   const { session } = useSession();
-  const profilId = session?.profilId;
+  const profilId = session?.sharedProfilId || session?.profilId;
   const token = session?.apiToken;
 
   const [catalog, setCatalog] = useState<Ingredient[]>([]);
@@ -127,22 +128,29 @@ export default function StockScreen() {
     }
     setSaving(true);
     setError(null);
+    const payload = {
+      ingredient_id: selected.id,
+      quantite_disponible: quantite,
+      unite: selected.unite_defaut as Unite,
+      date_peremption: expiry.trim() || null,
+    };
     try {
-      await upsertStockLine(
-        profilId,
-        {
-          ingredient_id: selected.id,
-          quantite_disponible: quantite,
-          unite: selected.unite_defaut as Unite,
-          date_peremption: expiry.trim() || null,
-        },
-        token
-      );
+      await upsertStockLine(profilId, payload, token);
       setExpiry("");
       const stock = await getStock(profilId, token);
       setLines(stock);
     } catch (e) {
-      setError(e instanceof ApiError ? e.detail : "Enregistrement impossible");
+      await enqueueMutation({
+        method: "POST",
+        path: `/stock/${profilId}/ingredients`,
+        body: payload,
+        token,
+      });
+      setError(
+        e instanceof ApiError
+          ? `${e.detail} (mis en file hors-ligne)`
+          : "Hors ligne — enregistré dans la file."
+      );
     } finally {
       setSaving(false);
     }
@@ -247,6 +255,10 @@ export default function StockScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Text style={styles.section}>Import rapide (texte)</Text>
+      <Body>
+        Colle des lignes « tomate 500g ». L'API accepte aussi POST
+        /stock/…/import-image (base64 / OCR).
+      </Body>
       <TextInput
         value={importText}
         onChangeText={setImportText}

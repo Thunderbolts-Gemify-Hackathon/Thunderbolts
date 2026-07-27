@@ -9,11 +9,32 @@ export type NotificationPreference = {
   enabled: boolean;
 };
 
+export type NotificationPreviewItem = {
+  kind: string;
+  title: string;
+  body: string;
+  hour: number;
+  minute: number;
+  weekday?: number;
+};
+
+export type NotificationPreview = {
+  profil_id: string;
+  enabled: boolean;
+  notifications: NotificationPreviewItem[];
+};
+
 export function getNotificationPrefs(profilId: string, token: string) {
   return api<NotificationPreference>(
     `/notifications/${profilId}/preferences`,
     { token }
   );
+}
+
+export function getNotificationPreview(profilId: string, token: string) {
+  return api<NotificationPreview>(`/notifications/${profilId}/preview`, {
+    token,
+  });
 }
 
 export function updateNotificationPrefs(

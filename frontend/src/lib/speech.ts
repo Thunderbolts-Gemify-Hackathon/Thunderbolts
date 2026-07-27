@@ -33,6 +33,20 @@ export function speakTracked(
   });
 }
 
+/** Message de repli si STT natif indisponible (testable sans module natif). */
+export function fallbackListenError(platform: string = Platform.OS): string {
+  if (platform === "web") {
+    return "Reconnaissance vocale indisponible sur ce navigateur.";
+  }
+  return "Sur telephone, utilise le micro du clavier puis Envoyer.";
+}
+
+export function isListenSuccess(
+  result: ListenResult
+): result is { text: string } {
+  return "text" in result && typeof result.text === "string";
+}
+
 type ExpoSpeechRecognitionModule = {
   requestPermissionsAsync?: () => Promise<{ granted?: boolean; status?: string }>;
   start?: (opts: Record<string, unknown>) => void;
@@ -45,11 +59,16 @@ type ExpoSpeechRecognitionModule = {
 
 function tryNativeSpeechRecognition(): ExpoSpeechRecognitionModule | null {
   try {
-    // Optionnel : expo-speech-recognition si présent dans le projet natif.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require("expo-speech-recognition");
-    return mod?.ExpoSpeechRecognitionModule || mod?.default || mod || null;
+    return (
+      mod?.ExpoSpeechRecognitionModule ||
+      mod?.default ||
+      mod ||
+      null
+    );
   } catch {
+    // Package absent ou non lié au build natif — repli clavier.
     return null;
   }
 }
@@ -65,9 +84,7 @@ function listenWeb(lang: string): Promise<ListenResult> {
     }).webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
-    return Promise.resolve({
-      error: "Reconnaissance vocale indisponible sur ce navigateur.",
-    });
+    return Promise.resolve({ error: fallbackListenError("web") });
   }
 
   return new Promise((resolve) => {
@@ -106,7 +123,10 @@ function listenNativeModule(
       resolve(result);
     };
 
-    const timer = setTimeout(() => finish({ error: "Temps d'écoute dépassé." }), 8000);
+    const timer = setTimeout(
+      () => finish({ error: "Temps d'écoute dépassé." }),
+      8000
+    );
 
     void (async () => {
       try {
@@ -115,8 +135,7 @@ function listenNativeModule(
           if (perm && perm.granted === false && perm.status !== "granted") {
             clearTimeout(timer);
             finish({
-              error:
-                "Micro refusé. Utilise le clavier puis Envoyer.",
+              error: "Micro refusé. Utilise le clavier puis Envoyer.",
             });
             return;
           }
@@ -135,13 +154,14 @@ function listenNativeModule(
           subError?.remove();
           finish({ error: "Ecoute interrompue." });
         });
-        mod.start?.({ lang, interimResults: false, continuous: false });
+        mod.start?.({
+          lang,
+          interimResults: false,
+          continuous: false,
+        });
       } catch {
         clearTimeout(timer);
-        finish({
-          error:
-            "Sur telephone, utilise le micro du clavier puis Envoyer.",
-        });
+        finish({ error: fallbackListenError("native") });
       }
     })();
   });
@@ -150,7 +170,8 @@ function listenNativeModule(
 /**
  * STT appareil :
  * - web : Web Speech API
- * - natif : tente expo-speech-recognition si dispo, sinon message clavier
+ * - natif : expo-speech-recognition (plugin app.json) si le module est lié
+ * - sinon : message clavier via fallbackListenError
  */
 export function listenOnce(lang = "fr-FR"): Promise<ListenResult> {
   if (Platform.OS === "web") {
@@ -160,16 +181,10 @@ export function listenOnce(lang = "fr-FR"): Promise<ListenResult> {
   if (native?.start) {
     return listenNativeModule(native, lang);
   }
-  return Promise.resolve({
-    error:
-      "Sur telephone, maintiens le bouton pour parler si dispo, sinon utilise le micro du clavier puis Envoyer.",
-  });
+  return Promise.resolve({ error: fallbackListenError(Platform.OS) });
 }
 
-/**
- * Push-to-talk : démarre l'écoute (même chemin que listenOnce).
- * Sur web / natif module : écoute complète. Sinon erreur explicite.
- */
+/** Push-to-talk : même chemin que listenOnce. */
 export async function pushToTalk(lang = "fr-FR"): Promise<ListenResult> {
   return listenOnce(lang);
 }
@@ -178,7 +193,13 @@ type SpeechRecognitionLike = {
   lang: string;
   interimResults: boolean;
   maxAlternatives: number;
-  onresult: ((event: { results?: { [i: number]: { [j: number]: { transcript?: string } } } }) => void) | null;
+  onresult:
+    | ((event: {
+        results?: {
+          [i: number]: { [j: number]: { transcript?: string } };
+        };
+      }) => void)
+    | null;
   onerror: (() => void) | null;
   onend: (() => void) | null;
   start: () => void;

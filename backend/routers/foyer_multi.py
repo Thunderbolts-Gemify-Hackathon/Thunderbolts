@@ -12,6 +12,15 @@ from backend.services import foyer_multi_service
 router = APIRouter(prefix="/foyer", tags=["foyer-multi"])
 
 
+@router.get("/mine")
+def mes_foyers(
+    utilisateur: Utilisateur = Depends(get_current_utilisateur),
+    db: Session = Depends(get_db),
+):
+    """Liste les foyers accessibles (stock/budget partagés via profil_id)."""
+    return foyer_multi_service.list_foyers_for_utilisateur(db, utilisateur.id)
+
+
 @router.get("/{profil_id}/membres", response_model=list[FoyerMembreLienOut])
 def list_membres(
     profil: Profil = Depends(require_profil_owner),

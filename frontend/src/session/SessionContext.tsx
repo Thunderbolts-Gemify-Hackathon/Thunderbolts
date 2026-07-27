@@ -16,7 +16,13 @@ export type Session = {
   apiToken: string;
   prenom: string;
   email: string;
+  /** Profil personnel (onboarding). */
   profilId?: string;
+  /**
+   * Profil foyer actif pour stock/budget partagés.
+   * Si absent, l'UI utilise profilId.
+   */
+  sharedProfilId?: string;
   foyerId?: string;
   preferencesId?: string;
   budgetId?: string;

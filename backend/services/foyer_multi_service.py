@@ -112,3 +112,36 @@ def revoke_lien(db: Session, foyer_id: str, lien_id: str, requester_utilisateur_
         raise ValueError("Impossible de retirer le propriétaire")
     db.delete(lien)
     db.commit()
+
+
+def list_foyers_for_utilisateur(db: Session, utilisateur_id: str) -> list[dict]:
+    """Foyers où l'utilisateur est owner ou membre, avec profil_id partagé."""
+    liens = (
+        db.query(FoyerMembreLien)
+        .filter(FoyerMembreLien.utilisateur_id == utilisateur_id)
+        .all()
+    )
+    out: list[dict] = []
+    for lien in liens:
+        foyer = db.get(Foyer, lien.foyer_id)
+        if not foyer:
+            continue
+        out.append(
+            {
+                "foyer_id": foyer.id,
+                "profil_id": foyer.profil_id,
+                "role": lien.role,
+                "partage_stock": True,
+                "partage_budget": True,
+            }
+        )
+    return out
+
+
+def get_shared_profil_id(db: Session, utilisateur_id: str) -> str | None:
+    """Profil foyer principal (owner en priorité, sinon premier membre)."""
+    foyers = list_foyers_for_utilisateur(db, utilisateur_id)
+    if not foyers:
+        return None
+    owners = [f for f in foyers if f["role"] == "owner"]
+    return (owners or foyers)[0]["profil_id"]

@@ -138,12 +138,14 @@ def ce_soir(
 ):
     """Card dashboard « Ce soir » : suggestion déterministe sans Gemma."""
     try:
-        return repas_suggestion_service.suggestion_ce_soir(
+        result = repas_suggestion_service.suggestion_ce_soir(
             db, profil.id, mode=mode, duree_max_minutes=duree_max_minutes
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+    from backend.services.gemma_tools import _to_jsonable
 
+    return _to_jsonable(result)
 
 @router.post("/{profil_id}/recette/{recette_id}/etapes", response_model=EtapesRecetteResponse)
 def etapes_recette(

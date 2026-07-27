@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.deps import require_profil_owner
+from backend.deps import require_profil_access
 from backend.models.profil import Profil
 from backend.schemas.composites import StockDeductionRequest
 from backend.schemas.depense import ApprovisionnementRequest, ApprovisionnementResponse
@@ -14,7 +14,11 @@ from backend.schemas.stock import (
 )
 from backend.services import stock_alerts, stock_service
 from backend.schemas.composites import RuptureOut
-from backend.schemas.stock_import import StockImportTextRequest, StockImportTextResponse
+from backend.schemas.stock_import import (
+    StockImportImageRequest,
+    StockImportTextRequest,
+    StockImportTextResponse,
+)
 from backend.services import stock_import_service
 
 router = APIRouter(prefix="/stock", tags=["stock"])
@@ -22,7 +26,7 @@ router = APIRouter(prefix="/stock", tags=["stock"])
 
 @router.get("/{profil_id}", response_model=list[IngredientStockOut])
 def get_stock(
-    profil: Profil = Depends(require_profil_owner),
+    profil: Profil = Depends(require_profil_access),
     db: Session = Depends(get_db),
 ):
     return stock_service.get_stock_profil(db, profil.id)
@@ -31,7 +35,7 @@ def get_stock(
 @router.post("/{profil_id}", response_model=StockOut, status_code=201)
 def create_stock(
     payload: StockCreate,
-    profil: Profil = Depends(require_profil_owner),
+    profil: Profil = Depends(require_profil_access),
     db: Session = Depends(get_db),
 ):
     return stock_service.create_or_replace_stock(db, profil.id, payload)
@@ -40,7 +44,7 @@ def create_stock(
 @router.post("/{profil_id}/ingredients", response_model=IngredientStockOut)
 def upsert_ingredient(
     payload: IngredientStockUpsert,
-    profil: Profil = Depends(require_profil_owner),
+    profil: Profil = Depends(require_profil_access),
     db: Session = Depends(get_db),
 ):
     return stock_service.upsert_ingredient_stock(db, profil.id, payload)
@@ -49,7 +53,7 @@ def upsert_ingredient(
 @router.post("/{profil_id}/deduire", response_model=IngredientStockOut)
 def deduire_stock(
     payload: StockDeductionRequest,
-    profil: Profil = Depends(require_profil_owner),
+    profil: Profil = Depends(require_profil_access),
     db: Session = Depends(get_db),
 ):
     return stock_service.update_stock(
@@ -60,7 +64,7 @@ def deduire_stock(
 @router.delete("/{profil_id}/ingredients/{ingredient_id}", status_code=204)
 def remove_ingredient(
     ingredient_id: str,
-    profil: Profil = Depends(require_profil_owner),
+    profil: Profil = Depends(require_profil_access),
     db: Session = Depends(get_db),
 ):
     stock_service.remove_ingredient_stock(db, profil.id, ingredient_id)
@@ -68,7 +72,7 @@ def remove_ingredient(
 
 @router.get("/{profil_id}/detail", response_model=StockOut)
 def get_stock_detail(
-    profil: Profil = Depends(require_profil_owner),
+    profil: Profil = Depends(require_profil_access),
     db: Session = Depends(get_db),
 ):
     stock = stock_service.get_stock_detail(db, profil.id)
@@ -83,7 +87,7 @@ def get_stock_detail(
 )
 def approvisionner_stock(
     payload: ApprovisionnementRequest,
-    profil: Profil = Depends(require_profil_owner),
+    profil: Profil = Depends(require_profil_access),
     db: Session = Depends(get_db),
 ):
     result = stock_service.approvisionner(
@@ -98,7 +102,7 @@ def approvisionner_stock(
 
 @router.get("/{profil_id}/alertes/peremption", response_model=list[IngredientStockOut])
 def alertes_peremption(
-    profil: Profil = Depends(require_profil_owner),
+    profil: Profil = Depends(require_profil_access),
     jours: int = 7,
     db: Session = Depends(get_db),
 ):
@@ -107,7 +111,7 @@ def alertes_peremption(
 
 @router.get("/{profil_id}/alertes/ruptures", response_model=list[RuptureOut])
 def alertes_ruptures(
-    profil: Profil = Depends(require_profil_owner),
+    profil: Profil = Depends(require_profil_access),
     planning_id: str = "",
     db: Session = Depends(get_db),
 ):
@@ -122,10 +126,32 @@ def alertes_ruptures(
 )
 def import_stock_text(
     payload: StockImportTextRequest,
-    profil: Profil = Depends(require_profil_owner),
+    profil: Profil = Depends(require_profil_access),
     db: Session = Depends(get_db),
 ):
     """Parse des lignes type « tomate 500g » (sans OCR) + option apply."""
     return stock_import_service.import_text(
         db, profil.id, payload.text, apply=payload.apply
     )
+
+
+@router.post(
+    "/{profil_id}/import-image",
+    response_model=StockImportTextResponse,
+)
+def import_stock_image(
+    payload: StockImportImageRequest,
+    profil: Profil = Depends(require_profil_access),
+    db: Session = Depends(get_db),
+):
+    """Import stock depuis image base64 (hook text:… / Gemma vision) ou texte."""
+    try:
+        return stock_import_service.import_image(
+            db,
+            profil.id,
+            image_base64=payload.image_base64,
+            text=payload.text,
+            apply=payload.apply,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc

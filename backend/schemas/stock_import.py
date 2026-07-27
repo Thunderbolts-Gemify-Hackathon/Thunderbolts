@@ -16,6 +16,15 @@ class StockImportTextRequest(BaseModel):
     apply: bool = False
 
 
+class StockImportImageRequest(BaseModel):
+    """Import depuis image (base64) et/ou texte OCR déjà extrait."""
+
+    image_base64: Optional[str] = None
+    text: Optional[str] = None
+    apply: bool = False
+
+
 class StockImportTextResponse(BaseModel):
     lines: list[StockImportLine]
     applied: int = 0
+    source: str = "text"

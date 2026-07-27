@@ -8,7 +8,7 @@ from backend.schemas.notification_pref import (
     NotificationPreferenceOut,
     NotificationPreferenceUpdate,
 )
-from backend.services import notification_pref_service
+from backend.services import notification_pref_service, notification_preview_service
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -28,3 +28,12 @@ def update_preferences(
     db: Session = Depends(get_db),
 ):
     return notification_pref_service.update_prefs(db, profil.id, payload)
+
+
+@router.get("/{profil_id}/preview")
+def preview_notifications(
+    profil: Profil = Depends(require_profil_owner),
+    db: Session = Depends(get_db),
+):
+    """Suggestions de payloads (péremption avec noms + hint ce soir)."""
+    return notification_preview_service.build_preview(db, profil.id)

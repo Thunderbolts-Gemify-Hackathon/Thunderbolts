@@ -18,5 +18,6 @@ from backend.models.price_report import PriceIndex, PriceReport
 from backend.models.profil import Profil
 from backend.models.recette import Recette, RecetteIngredient
 from backend.models.repas_feedback import RepasFeedback
+from backend.models.defi_progress import DefiProgress
 from backend.models.stock import IngredientStock, Stock
 from backend.models.utilisateur import Utilisateur

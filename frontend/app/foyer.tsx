@@ -13,7 +13,9 @@ import {
 import {
   inviteFoyerMembre,
   listFoyerMembres,
+  listMyFoyers,
   type FoyerMembreLien,
+  type FoyerMine,
 } from "@/api/foyer";
 import { ApiError } from "@/api/http";
 import { useSession } from "@/session/SessionContext";
@@ -24,24 +26,35 @@ import { colors, radius, space, type } from "@/theme";
 
 export default function FoyerScreen() {
   const router = useRouter();
-  const { session } = useSession();
+  const { session, patchSession } = useSession();
   const profilId = session?.profilId;
   const token = session?.apiToken;
+  const activeProfilId = session?.sharedProfilId || session?.profilId;
   const [membres, setMembres] = useState<FoyerMembreLien[]>([]);
+  const [foyers, setFoyers] = useState<FoyerMine[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!profilId || !token) {
+    if (!token) {
       setError("Session incomplete.");
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const rows = await listFoyerMembres(profilId, token);
+      const shared = await listMyFoyers(token);
+      setFoyers(shared);
+      let rows: FoyerMembreLien[] = [];
+      if (profilId) {
+        try {
+          rows = await listFoyerMembres(profilId, token);
+        } catch {
+          rows = [];
+        }
+      }
       setMembres(rows);
       setError(null);
     } catch (e) {
@@ -54,6 +67,10 @@ export default function FoyerScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const switchSharedProfil = async (sharedId: string) => {
+    await patchSession({ sharedProfilId: sharedId });
+  };
 
   const invite = async () => {
     if (!profilId || !token) return;
@@ -84,7 +101,7 @@ export default function FoyerScreen() {
           <Button
             label={inviting ? "Creation…" : "Inviter un coloc"}
             onPress={() => void invite()}
-            disabled={inviting}
+            disabled={inviting || !profilId}
           />
           <Button label="Retour" variant="ghost" onPress={() => router.back()} />
         </View>
@@ -96,6 +113,30 @@ export default function FoyerScreen() {
       {loading ? <ActivityIndicator color={colors.brand} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
+      <Text style={styles.section}>Stock / budget partagés</Text>
+      {foyers.length === 0 ? (
+        <Body>Aucun foyer lié. Accepte une invitation ou crée la tienne.</Body>
+      ) : (
+        foyers.map((f) => {
+          const active = f.profil_id === activeProfilId;
+          return (
+            <Pressable
+              key={f.foyer_id}
+              onPress={() => void switchSharedProfil(f.profil_id)}
+              style={[styles.card, active && styles.cardActive]}
+            >
+              <Text style={styles.nom}>
+                {f.role === "owner" ? "Mon foyer" : "Foyer partagé"} · {f.role}
+              </Text>
+              <Text style={styles.meta}>
+                profil {f.profil_id.slice(0, 8)}…
+                {active ? " · actif" : " · appuyer pour basculer"}
+              </Text>
+            </Pressable>
+          );
+        })
+      )}
+
       {lastInviteUrl ? (
         <View style={styles.card}>
           <Text style={styles.label}>Dernier lien</Text>
@@ -103,7 +144,6 @@ export default function FoyerScreen() {
           <Pressable
             onPress={() => {
               try {
-                // Clipboard may be unavailable without package — fallback alert
                 void Share.share({ message: lastInviteUrl });
               } catch {
                 Alert.alert("Lien", lastInviteUrl);
@@ -162,6 +202,10 @@ const styles = StyleSheet.create({
     padding: space.md,
     gap: 4,
     marginTop: space.sm,
+  },
+  cardActive: {
+    borderColor: colors.brand,
+    backgroundColor: colors.brandSoft,
   },
   label: { fontSize: type.small, color: colors.muted, fontWeight: "700" },
   url: { fontSize: type.small, color: colors.ink },

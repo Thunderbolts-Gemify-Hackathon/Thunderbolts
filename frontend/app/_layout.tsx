@@ -12,7 +12,10 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { getMonProfilComplet } from "@/api/onboarding";
 import { getNotificationPrefs } from "@/api/notifications";
-import { scheduleFromPreferences } from "@/lib/notifications";
+import {
+  scheduleContextualNotifications,
+  scheduleFromPreferences,
+} from "@/lib/notifications";
 import { hydrationFromComplet } from "@/onboarding/hydrate";
 import { OnboardingProvider, useOnboarding } from "@/onboarding/store";
 import { SessionProvider, useSession } from "@/session/SessionContext";
@@ -54,9 +57,12 @@ function useAppBoot() {
         void patchSession(sessionPatch);
         const profilId = sessionPatch.profilId || session.profilId;
         if (profilId && session.apiToken) {
-          void getNotificationPrefs(profilId, session.apiToken)
-            .then((prefs) => scheduleFromPreferences(prefs))
-            .catch(() => undefined);
+          void scheduleContextualNotifications(profilId, session.apiToken).catch(
+            () =>
+              getNotificationPrefs(profilId, session.apiToken!).then((prefs) =>
+                scheduleFromPreferences(prefs)
+              )
+          );
         }
       })
       .catch(() => {

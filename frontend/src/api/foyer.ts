@@ -36,3 +36,16 @@ export function acceptFoyerInvite(token: string, inviteToken: string) {
     token,
   });
 }
+
+export type FoyerMine = {
+  foyer_id: string;
+  profil_id: string;
+  role: string;
+  partage_stock: boolean;
+  partage_budget: boolean;
+};
+
+/** Foyers accessibles (owner + membre) avec profil_id partagé stock/budget. */
+export function listMyFoyers(token: string) {
+  return api<FoyerMine[]>("/foyer/mine", { token });
+}

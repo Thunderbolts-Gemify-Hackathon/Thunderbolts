@@ -26,4 +26,20 @@ export function importStockText(
   });
 }
 
+/** Import depuis image base64 (OCR / hook text:…). */
+export function importStockImage(
+  profilId: string,
+  token: string,
+  payload: { image_base64?: string; text?: string; apply: boolean }
+) {
+  return api<StockImportResult & { source?: string }>(
+    `/stock/${profilId}/import-image`,
+    {
+      method: "POST",
+      token,
+      body: payload,
+    }
+  );
+}
+
 export type { IngredientStockOut };

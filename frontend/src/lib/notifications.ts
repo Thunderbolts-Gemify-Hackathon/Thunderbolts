@@ -4,7 +4,11 @@
  */
 import { Platform } from "react-native";
 
-import type { NotificationPreference } from "@/api/notifications";
+import {
+  getNotificationPreview,
+  type NotificationPreference,
+  type NotificationPreviewItem,
+} from "@/api/notifications";
 
 type Scheduler = {
   schedule: (prefs: NotificationPreference) => Promise<void>;
@@ -53,60 +57,87 @@ export async function cancelAllLocalNotifications() {
   }
 }
 
+async function scheduleOne(item: NotificationPreviewItem) {
+  if (!Notifications?.scheduleNotificationAsync) return;
+  try {
+    if (item.weekday != null) {
+      await Notifications.scheduleNotificationAsync({
+        content: { title: item.title, body: item.body },
+        trigger: {
+          type: "weekly",
+          weekday: item.weekday,
+          hour: item.hour,
+          minute: item.minute,
+        },
+      });
+    } else {
+      await Notifications.scheduleNotificationAsync({
+        content: { title: item.title, body: item.body },
+        trigger: {
+          type: "daily",
+          hour: item.hour,
+          minute: item.minute,
+        },
+      });
+    }
+  } catch {
+    /* trigger API varie selon version — ignore */
+  }
+}
+
 export async function scheduleFromPreferences(prefs: NotificationPreference) {
   await cancelAllLocalNotifications();
   if (!prefs.enabled || !Notifications?.scheduleNotificationAsync) return;
   const ok = await ensurePermission();
   if (!ok) return;
 
-  const schedule = async (title: string, body: string, hour: number, minute: number) => {
-    try {
-      await Notifications!.scheduleNotificationAsync!({
-        content: { title, body },
-        trigger: {
-          type: "daily",
-          hour,
-          minute,
-        },
-      });
-    } catch {
-      /* trigger API varie selon version — ignore */
-    }
-  };
-
   if (prefs.ce_soir) {
-    await schedule(
-      "Ce soir sur KaliTao",
-      "Une idée de repas t'attend sur le tableau de bord.",
-      17,
-      30
-    );
+    await scheduleOne({
+      kind: "ce_soir",
+      title: "Ce soir sur KaliTao",
+      body: "Une idée de repas t'attend sur le tableau de bord.",
+      hour: 17,
+      minute: 30,
+    });
   }
   if (prefs.peremption) {
-    await schedule(
-      "Péremption",
-      "Vérifie les produits qui approchent de la date limite.",
-      9,
-      0
-    );
+    await scheduleOne({
+      kind: "peremption",
+      title: "Péremption",
+      body: "Vérifie les produits qui approchent de la date limite.",
+      hour: 9,
+      minute: 0,
+    });
   }
   if (prefs.resume_dimanche) {
-    try {
-      await Notifications!.scheduleNotificationAsync!({
-        content: {
-          title: "Résumé dimanche",
-          body: "Budget, stock et anti-gaspi de la semaine.",
-        },
-        trigger: {
-          type: "weekly",
-          weekday: 1,
-          hour: 10,
-          minute: 0,
-        },
-      });
-    } catch {
-      /* no-op */
+    await scheduleOne({
+      kind: "resume_dimanche",
+      title: "Résumé dimanche",
+      body: "Budget, stock et anti-gaspi de la semaine.",
+      hour: 10,
+      minute: 0,
+      weekday: 1,
+    });
+  }
+}
+
+/** Récupère le preview serveur (noms d'items + ce soir) puis planifie. */
+export async function scheduleContextualNotifications(
+  profilId: string,
+  token: string
+) {
+  await cancelAllLocalNotifications();
+  if (!Notifications?.scheduleNotificationAsync) return;
+  const ok = await ensurePermission();
+  if (!ok) return;
+  try {
+    const preview = await getNotificationPreview(profilId, token);
+    if (!preview.enabled) return;
+    for (const item of preview.notifications) {
+      await scheduleOne(item);
     }
+  } catch {
+    /* ignore réseau */
   }
 }
 
