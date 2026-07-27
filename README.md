@@ -1,6 +1,6 @@
-# KaliTao
+# Kaly'Tao
 
-Monorepo KaliTao (hackathon Gemmify, Madagascar) :
+Monorepo Kaly'Tao (hackathon Gemmify, Madagascar) :
 
 - `backend/` : API FastAPI (planning, stock, budget, marchés, Gemma)
 - `frontend/` : app Expo / React Native
