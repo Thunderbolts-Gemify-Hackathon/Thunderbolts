@@ -115,6 +115,33 @@ TOOLS: list[dict[str, Any]] = [
             "required": ["ingredient_nom"],
         },
     },
+    {
+        "name": "optimize_one_trip",
+        "description": (
+            "Calcule un trajet courses avec le moins d'arrêts marché possible "
+            "(one-trip). Utiliser quand l'utilisateur demande où faire ses courses, "
+            "un trajet optimal, ou combien de marchés pour sa liste."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "ingredient_nom": {"type": "string"},
+                            "quantite": {"type": "number"},
+                            "unite": {"type": "string"},
+                        },
+                    },
+                },
+                "budget": {"type": "number"},
+                "rayon_km": {"type": "number"},
+            },
+            "required": ["items"],
+        },
+    },
 ]
 
 
@@ -245,6 +272,26 @@ def _dispatch(db: Session, profil_id: str, tool_name: str, arguments: dict) -> A
             loc = db.query(Localisation).filter(Localisation.profil_id == profil_id).first()
             quartier = loc.quartier if loc else None
         return get_local_price(db, arguments["ingredient_nom"], quartier=quartier)
+
+    if tool_name == "optimize_one_trip":
+        from backend.models.localisation import Localisation
+        from backend.services import market_trip_service
+
+        loc = db.query(Localisation).filter(Localisation.profil_id == profil_id).first()
+        if not loc:
+            raise ValueError("Localisation manquante pour ce profil")
+        items = list(arguments.get("items") or [])
+        if not items:
+            raise ValueError("Liste d'articles vide")
+        return market_trip_service.optimize_one_trip(
+            db,
+            items,
+            lat=loc.latitude,
+            lon=loc.longitude,
+            rayon_km=float(arguments.get("rayon_km") or 15),
+            profil_id=profil_id,
+            budget=arguments.get("budget"),
+        )
 
     raise ValueError(f"Outil inconnu: {tool_name}")
 

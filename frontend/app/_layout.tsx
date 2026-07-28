@@ -12,6 +12,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { getMonProfilComplet } from "@/api/onboarding";
 import { getNotificationPrefs } from "@/api/notifications";
+import { useOfflineFlush } from "@/hooks/useOfflineFlush";
 import {
   scheduleContextualNotifications,
   scheduleFromPreferences,
@@ -84,6 +85,7 @@ function useAppBoot() {
 
 function AppShell({ fontsLoaded }: { fontsLoaded: boolean }) {
   const bootReady = useAppBoot();
+  useOfflineFlush();
 
   useEffect(() => {
     if (fontsLoaded && bootReady) SplashScreen.hideAsync();

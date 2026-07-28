@@ -67,6 +67,13 @@
           "microphonePermission": "Kaly Tao utilise le micro pour l'assistant vocal.",
           "speechRecognitionPermission": "Kaly Tao utilise la reconnaissance vocale pour comprendre tes demandes."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kaly Tao lit ta photo de ticket / placard pour remplir le stock.",
+          "cameraPermission": "Kaly Tao utilise la caméra pour photographier ton ticket ou ton placard."
+        }
       ]
     ],
     "experiments": {

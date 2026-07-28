@@ -65,10 +65,16 @@ def seed_food(db: Session) -> dict:
             tags=tags,
             instructions=RECETTE_INSTRUCTIONS.get(nom),
         )
-        if recette.instructions is None and nom in RECETTE_INSTRUCTIONS:
+        # Resync catalogue → DB (nouveaux tags / macros après expansion du seed)
+        recette.heure_conseillee = heure
+        recette.kcal_total = kcal
+        recette.proteines = prot
+        recette.glucides = gluc
+        recette.lipides = lip
+        recette.duree_minutes = duree
+        recette.tags = tags
+        if nom in RECETTE_INSTRUCTIONS:
             recette.instructions = RECETTE_INSTRUCTIONS[nom]
-        if recette.duree_minutes is None:
-            recette.duree_minutes = duree
         if not recette.ingredients:
             for ing_nom, poids, unite in lignes:
                 db.add(

@@ -103,4 +103,51 @@ def test_selectionner_recettes_semaine_uses_rank():
     ranked = rank_recettes(recettes, prefs, foyer={})
     selection = selectionner_recettes_semaine(ranked, nb_jours=1)
     assert len(selection) == 3
-    assert all(s["id"] == "high" for s in selection)
+    # Premier créneau = meilleur rank ; les suivants diversifient.
+    assert selection[0]["id"] == "high"
+    assert {s["id"] for s in selection} == {"high", "low"}
+
+
+def test_selectionner_evite_cycle_meme_plat():
+    from backend.services.recipe_rag import pool_candidats_planning
+
+    recettes = [
+        _recette(f"pd{i}", f"pd_{i}", ["petit_dejeuner"], ["riz"]) for i in range(4)
+    ] + [
+        _recette(f"dj{i}", f"dj_{i}", ["dejeuner"], ["poulet"]) for i in range(4)
+    ] + [
+        _recette(f"dn{i}", f"dn_{i}", ["diner"], ["legume"]) for i in range(4)
+    ]
+    prefs = {"allergies": [], "tabous": [], "aliments_detestes": [], "aliments_aimes": []}
+    ranked = rank_recettes(recettes, prefs, foyer={})
+    selection = selectionner_recettes_semaine(ranked, nb_jours=4)
+    petits = [s["id"] for s in selection if "petit_dejeuner" in (s.get("tags") or [])]
+    assert len(set(petits)) == 4
+
+    pool = pool_candidats_planning(ranked, par_creneau=3)
+    assert len(pool) == 9
+    assert len({r["id"] for r in pool}) == 9
+
+
+def test_etendre_pattern_hebdo_json_sur_30_jours():
+    from datetime import date
+
+    from backend.services.planning_generation_service import _etendre_pattern_hebdo_json
+
+    debut = date(2026, 7, 1)
+    semaine = [
+        {
+            "jour": "2026-07-01",
+            "type_repas": "petit_dejeuner",
+            "recette_id": "pd-a",
+        },
+        {"jour": "2026-07-01", "type_repas": "dejeuner", "recette_id": "dj-a"},
+        {"jour": "2026-07-02", "type_repas": "diner", "recette_id": "dn-b"},
+    ]
+    mois = _etendre_pattern_hebdo_json(semaine, debut, 30)
+    # offset0 (5×) ×2 repas + offset1 (5×) ×1 repas = 15
+    assert len(mois) == 15
+    # Jour 9 = même pattern que jour 2 (offset 1)
+    j9 = [r for r in mois if r["jour"] == "2026-07-09"]
+    assert any(r["recette_id"] == "dn-b" for r in j9)
+    assert all("jour" in r and "recette_id" in r for r in mois)

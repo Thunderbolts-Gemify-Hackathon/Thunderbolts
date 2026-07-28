@@ -19,6 +19,8 @@ EVENTS = frozenset(
         "tool_ok",
         "tool_fail",
         "ce_soir",
+        "tool_loop_repeat",
+        "tool_loop_max",
     }
 )
 

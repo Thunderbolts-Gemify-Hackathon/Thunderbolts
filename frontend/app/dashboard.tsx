@@ -88,6 +88,7 @@ export default function DashboardScreen() {
 
     setLoading(true);
     try {
+      let soft: string | null = null;
       const [budget, stock, planning, ceSoir, peremption, summary, digest, antiGaspi] =
         await Promise.all([
           getBudget(profilId, token).catch((e) => {
@@ -102,7 +103,14 @@ export default function DashboardScreen() {
             if (e instanceof ApiError && e.status === 404) return null;
             throw e;
           }),
-          getCeSoir(profilId, token).catch(() => null),
+          getCeSoir(profilId, token).catch((e) => {
+            soft =
+              soft ||
+              (e instanceof ApiError
+                ? `Ce soir : ${e.detail}`
+                : "Suggestion Ce soir indisponible");
+            return null;
+          }),
           getAlertesPeremption(profilId, token).catch(() => []),
           getBudgetSummary(profilId, token).catch(() => null),
           getAgentDigest(profilId, token).catch(() => null),
@@ -148,7 +156,7 @@ export default function DashboardScreen() {
         digest,
         antiGaspi,
         peremption: peremption.length,
-        error: null,
+        error: soft,
       });
     } catch (e) {
       const msg =
@@ -274,8 +282,16 @@ export default function DashboardScreen() {
               style={styles.ctaSecondary}
               onPress={() =>
                 void getCeSoir(profilId!, token!, "rapide")
-                  .then((ceSoir) => setState((s) => ({ ...s, ceSoir })))
-                  .catch(() => undefined)
+                  .then((ceSoir) => setState((s) => ({ ...s, ceSoir, error: null })))
+                  .catch((e) =>
+                    setState((s) => ({
+                      ...s,
+                      error:
+                        e instanceof ApiError
+                          ? e.detail
+                          : "Impossible de trouver une option rapide",
+                    }))
+                  )
               }
             >
               <Text style={styles.ctaSecondaryText}>Plus rapide</Text>
@@ -361,7 +377,7 @@ export default function DashboardScreen() {
           [
             { icon: "mic-outline" as const, label: "Vocal", href: "/assistant-vocal" },
             { icon: "cart-outline" as const, label: "Courses", href: "/courses" },
-            { icon: "calendar-outline" as const, label: "Planning", href: "/planning" },
+            { icon: "trophy-outline" as const, label: "Défis", href: "/defis" },
             { icon: "cube-outline" as const, label: "Stock", href: "/stock" },
           ] as const
         ).map((item) => (
@@ -388,6 +404,8 @@ export default function DashboardScreen() {
             [
               ["/market", "Marchés"],
               ["/map", "Carte"],
+              ["/sortie-marche", "Sortie"],
+              ["/defis", "Défis"],
               ["/recettes", "Recettes"],
               ["/foyer", "Coloc"],
               ["/chat", "Chat"],

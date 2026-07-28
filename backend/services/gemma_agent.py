@@ -14,6 +14,43 @@ from backend.services.gemma_tools import TOOLS, execute_tool_call
 
 MAX_TOOL_ITERATIONS = 5
 
+_FORCE_ANSWER = (
+    "Tu as déjà les résultats d'outils dans l'historique. "
+    "Réponds maintenant à l'utilisateur en français, de façon claire et utile, "
+    "sans appeler d'outil. Si une info manque (ex. quel produit), pose une question courte."
+)
+
+_FALLBACK_ANSWER = (
+    "Je n'ai pas pu formuler une réponse complète. "
+    "Reformule plus simplement, par exemple : « marché le plus proche » "
+    "ou « où acheter du riz »."
+)
+
+
+def _tool_signature(tool_calls: list[dict[str, Any]]) -> str:
+    payload = [
+        {
+            "name": tc.get("name"),
+            "arguments": tc.get("arguments") or {},
+        }
+        for tc in tool_calls
+    ]
+    return json.dumps(payload, sort_keys=True, ensure_ascii=False, default=str)
+
+
+def _force_final_answer(
+    client: GemmaClient,
+    messages: list[dict[str, Any]],
+) -> str:
+    """Dernier tour sans outils : les petits modèles bouclent sinon sans jamais répondre."""
+    messages.append({"role": "user", "content": _FORCE_ANSWER})
+    try:
+        message = client.chat(messages, tools=None)["message"]
+    except Exception:
+        return _FALLBACK_ANSWER
+    content = (message.get("content") or "").strip()
+    return content or _FALLBACK_ANSWER
+
 
 def run_tool_loop(
     db: Session,
@@ -29,20 +66,48 @@ def run_tool_loop(
 
     Si `trace` est fourni, chaque tool call exécuté y est ajouté (name/arguments/result) —
     utile pour afficher côté client quelles données chiffrées viennent bien d'un outil.
+
+    Les petits modèles (ex. gemma2:2b) rappellent parfois le même outil en boucle :
+    on coupe dès qu'un appel est répété, puis on force une réponse sans outils.
     """
     active_tools = tools if tools is not None else TOOLS
+    # Planning / modes sans outils : un seul tour suffit.
+    if not active_tools:
+        message = client.chat(messages, tools=None)["message"]
+        return (message.get("content") or "").strip()
+
+    seen_signatures: set[str] = set()
     for _ in range(max_iterations):
         message = client.chat(messages, tools=active_tools)["message"]
         tool_calls = message.get("tool_calls")
         if not tool_calls:
-            return message.get("content") or ""
+            content = (message.get("content") or "").strip()
+            if content:
+                return content
+            # Contenu vide sans outil → forcer une réponse plutôt qu'échouer.
+            return _force_final_answer(client, messages)
+
+        sig = _tool_signature(tool_calls)
+        if sig in seen_signatures:
+            llm_metrics.record_event(
+                "tool_loop_repeat",
+                profil_id=profil_id,
+                detail={"signature": sig[:200]},
+            )
+            return _force_final_answer(client, messages)
+        seen_signatures.add(sig)
 
         messages.append(
             {
                 "role": "assistant",
                 "content": message.get("content") or "",
                 "tool_calls": [
-                    {"function": {"name": tc["name"], "arguments": tc.get("arguments") or {}}}
+                    {
+                        "function": {
+                            "name": tc["name"],
+                            "arguments": tc.get("arguments") or {},
+                        }
+                    }
                     for tc in tool_calls
                 ],
             }
@@ -51,7 +116,13 @@ def run_tool_loop(
             arguments = tool_call.get("arguments") or {}
             resultat = execute_tool_call(db, profil_id, tool_call["name"], arguments)
             if trace is not None:
-                trace.append({"name": tool_call["name"], "arguments": arguments, "result": resultat})
+                trace.append(
+                    {
+                        "name": tool_call["name"],
+                        "arguments": arguments,
+                        "result": resultat,
+                    }
+                )
             messages.append(
                 {
                     "role": "tool",
@@ -60,7 +131,8 @@ def run_tool_loop(
                 }
             )
 
-    raise RuntimeError("Limite d'itérations d'outils atteinte sans réponse finale de Gemma")
+    llm_metrics.record_event("tool_loop_max", profil_id=profil_id)
+    return _force_final_answer(client, messages)
 
 
 def parse_json_list(contenu: str) -> list[Any] | None:

@@ -182,11 +182,10 @@ def phraser_liste_via_gemma(items: list[dict[str, Any]], periode: str) -> str:
     ]
     try:
         result = GemmaClient().chat(messages)
-    except RuntimeError:
+        contenu = (result["message"].get("content") or "").strip()
+        return contenu or _message_par_defaut_liste(a_acheter)
+    except Exception:  # noqa: BLE001 — Ollama/Gemini down : liste calculée reste utilisable
         return _message_par_defaut_liste(a_acheter)
-
-    contenu = (result["message"].get("content") or "").strip()
-    return contenu or _message_par_defaut_liste(a_acheter)
 
 
 def _message_par_defaut_liste(a_acheter: list[dict[str, Any]]) -> str:

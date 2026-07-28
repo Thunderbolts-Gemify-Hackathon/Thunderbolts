@@ -65,6 +65,18 @@ app.include_router(gemma.router)
 app.include_router(utilisateur.router)
 
 
+@app.get("/")
+def root():
+    """Évite le 404 JSON si on ouvre :8000 dans le navigateur au lieu de l'app Expo."""
+    return {
+        "service": "kalitao-api",
+        "docs": "/docs",
+        "health": "/health",
+        "app_web": "http://localhost:8081 (Expo — touche w)",
+        "hint": "Ceci est l'API, pas l'interface. Ouvre Expo web sur le port 8081.",
+    }
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "kalitao"}

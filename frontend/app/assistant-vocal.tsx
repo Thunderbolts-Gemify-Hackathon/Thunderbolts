@@ -123,12 +123,15 @@ export default function AssistantVocalScreen() {
         setPhase("idle");
       }
     } catch (e) {
-      const detail =
+      const raw =
         e instanceof ApiError ? e.detail : "Je n'ai pas pu répondre, vérifie Ollama / Gemma.";
+      const detail = /Limite d'itérations|tool/i.test(raw)
+        ? "Je me suis un peu embrouillé. Reformule plus simplement (ex. « marché le plus proche »)."
+        : raw;
       setError(detail);
       setPhase("idle");
       if (voiceEnabled) {
-        speakTracked("Désolé, je n'ai pas pu répondre. " + detail, {
+        speakTracked("Désolé, " + detail, {
           onStart: () => setPhase("speaking"),
           onDone: () => setPhase("idle"),
         });

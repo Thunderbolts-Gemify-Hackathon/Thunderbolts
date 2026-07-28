@@ -39,7 +39,7 @@ class GemmaClient:
         self.ollama_host = (
             ollama_host or os.getenv("OLLAMA_HOST", "http://localhost:11434")
         ).rstrip("/")
-        self.ollama_model = ollama_model or os.getenv("OLLAMA_MODEL", "gemma4:e2b")
+        self.ollama_model = ollama_model or os.getenv("OLLAMA_MODEL", "gemma4:latest")
         self.gemma4_api_key = gemma4_api_key or os.getenv("GEMMA4_API_KEY", "")
         self.gemma4_model = gemma4_model or os.getenv("GEMMA4_MODEL", "gemma-4-e2b-it")
         self.timeout = timeout
@@ -59,7 +59,12 @@ class GemmaClient:
             return self._chat_ollama(messages, tools, json_mode=json_mode)
         except (httpx.ConnectError, httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError):
             pass
-        return self._chat_gemma4(messages, tools, json_mode=json_mode)
+        try:
+            return self._chat_gemma4(messages, tools, json_mode=json_mode)
+        except (httpx.HTTPStatusError, httpx.RequestError, RuntimeError) as exc:
+            raise RuntimeError(
+                f"Aucun LLM joignable (Ollama + Gemini) : {exc}"
+            ) from exc
 
     def _chat_ollama(
         self, messages: list[dict], tools: list[dict] | None, *, json_mode: bool = False

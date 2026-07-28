@@ -83,3 +83,32 @@ def test_tool_inconnu_renvoie_erreur(db_session):
     profil = make_profil(db_session)
     result = execute_tool_call(db_session, profil.id, "outil_inexistant", {})
     assert "error" in result
+
+
+def test_optimize_one_trip_tool(db_session):
+    from datetime import date
+
+    profil = _profil_avec_localisation(db_session)
+    riz = Ingredient(nom="riz", unite_defaut="g")
+    db_session.add(riz)
+    db_session.flush()
+    pdv, _ = _seed_pdv(db_session)
+    db_session.add(
+        Offre(
+            point_de_vente_id=pdv.id,
+            ingredient_id=riz.id,
+            prix=3000,
+            derniere_mise_a_jour=date.today(),
+        )
+    )
+    db_session.commit()
+
+    result = execute_tool_call(
+        db_session,
+        profil.id,
+        "optimize_one_trip",
+        {"items": [{"ingredient_nom": "riz", "quantite": 1000, "unite": "g"}]},
+    )
+    assert "error" not in result
+    assert result.get("nb_arrets", 0) >= 1
+    assert result["stops"][0]["point_de_vente"]["nom"] == pdv.nom

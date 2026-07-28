@@ -21,13 +21,45 @@ import {
   type StockLine,
   type Unite,
 } from "@/api/stock";
-import { importStockText, type StockImportLine } from "@/api/stockImport";
+import { importStockImage, importStockText, type StockImportLine } from "@/api/stockImport";
 import { enqueueMutation } from "@/lib/offlineQueue";
 import { useSession } from "@/session/SessionContext";
 import { Button } from "@/ui/Button";
 import { Screen } from "@/ui/Screen";
 import { Body, Title } from "@/ui/Typography";
 import { colors, radius, space, type } from "@/theme";
+
+type ImageSource = "camera" | "library";
+
+async function captureImageBase64(source: ImageSource): Promise<string | null> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const ImagePicker = require("expo-image-picker");
+    if (source === "camera") {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (perm.status !== "granted" && perm.granted !== true) return null;
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions?.Images ?? ["images"],
+        base64: true,
+        quality: 0.65,
+        allowsEditing: true,
+      });
+      if (result.canceled || !result.assets?.[0]?.base64) return null;
+      return result.assets[0].base64 as string;
+    }
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (perm.status !== "granted" && perm.granted !== true) return null;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions?.Images ?? ["images"],
+      base64: true,
+      quality: 0.65,
+    });
+    if (result.canceled || !result.assets?.[0]?.base64) return null;
+    return result.assets[0].base64 as string;
+  } catch {
+    return null;
+  }
+}
 
 type UnitGroupKey = "poids" | "liquides" | "unites" | "autre";
 
@@ -226,6 +258,62 @@ export default function StockScreen() {
     }
   };
 
+  const importFromImage = async (source: ImageSource) => {
+    if (!profilId || !token) return;
+    setImporting(true);
+    setError(null);
+    try {
+      const b64 = await captureImageBase64(source);
+      if (!b64) {
+        setError(
+          source === "camera"
+            ? "Caméra refusée ou annulée. Autorise la caméra, ou choisis une photo."
+            : "Galerie refusée ou annulée. Autorise l'accès photos, ou prends une photo."
+        );
+        return;
+      }
+      const res = await importStockImage(profilId, token, {
+        image_base64: b64,
+        apply: false,
+      });
+      setImportPreview(res.lines);
+      if (!res.lines.length) {
+        setError("Aucun produit reconnu. Réessaie avec un ticket plus lisible ou du texte.");
+      }
+    } catch (e) {
+      setError(
+        e instanceof ApiError
+          ? e.detail
+          : "OCR indisponible — colle le texte du ticket à la place."
+      );
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const applyPhotoPreview = async () => {
+    if (!profilId || !token || !importPreview?.length) return;
+    const lines = importPreview
+      .filter((l) => l.matched)
+      .map((l) => `${l.label} ${l.quantite}${l.unite}`)
+      .join("\n");
+    if (!lines) {
+      setError("Aucun produit reconnu à appliquer.");
+      return;
+    }
+    setImporting(true);
+    setError(null);
+    try {
+      await importStockText(profilId, token, { text: lines, apply: true });
+      setImportPreview(null);
+      await load();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.detail : "Application impossible");
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const groupedLines = useMemo(() => {
     const groups = new Map<UnitGroupKey, StockLine[]>();
     for (const line of lines) {
@@ -254,10 +342,9 @@ export default function StockScreen() {
       {loading ? <ActivityIndicator color={colors.brand} /> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Text style={styles.section}>Import rapide (texte)</Text>
+      <Text style={styles.section}>Import rapide</Text>
       <Body>
-        Colle des lignes « tomate 500g ». L'API accepte aussi POST
-        /stock/…/import-image (base64 / OCR).
+        Prends une photo du ticket / placard, choisis une image, ou colle du texte « tomate 500g ».
       </Body>
       <TextInput
         value={importText}
@@ -269,17 +356,36 @@ export default function StockScreen() {
       />
       <View style={styles.importActions}>
         <Button
-          label={importing ? "…" : "Aperçu"}
+          label={importing ? "…" : "Prendre une photo"}
+          onPress={() => void importFromImage("camera")}
+          disabled={importing}
+        />
+        <Button
+          label={importing ? "…" : "Galerie"}
+          variant="ghost"
+          onPress={() => void importFromImage("library")}
+          disabled={importing}
+        />
+        <Button
+          label={importing ? "…" : "Aperçu texte"}
           variant="ghost"
           onPress={() => void previewImport()}
           disabled={importing || !importText.trim()}
         />
         <Button
-          label={importing ? "Import…" : "Appliquer au stock"}
+          label={importing ? "Import…" : "Appliquer texte"}
+          variant="ghost"
           onPress={() => void applyImport()}
           disabled={importing || !importText.trim()}
         />
       </View>
+      {importPreview?.some((l) => l.matched) && !importText.trim() ? (
+        <Button
+          label={importing ? "…" : "Appliquer l'aperçu photo au stock"}
+          onPress={() => void applyPhotoPreview()}
+          disabled={importing}
+        />
+      ) : null}
       {importPreview ? (
         <View style={styles.card}>
           {importPreview.map((line, i) => (

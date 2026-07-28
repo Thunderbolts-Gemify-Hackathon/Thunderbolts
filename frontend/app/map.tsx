@@ -23,6 +23,8 @@ import {
   matchesToMapPoints,
 } from "@/lib/mapHtml";
 import { formatDistanceM, formatDureeS } from "@/lib/travelEstimate";
+import { loadActiveTrip } from "@/lib/tripStore";
+import type { OneTripResult } from "@/api/marketPanier";
 import { useOnboarding } from "@/onboarding/store";
 import { useSession } from "@/session/SessionContext";
 import { MarketCard } from "@/ui/MarketCard";
@@ -52,7 +54,8 @@ const GUTTER = space.lg;
 
 export default function MapScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ ingredientId?: string }>();
+  const params = useLocalSearchParams<{ ingredientId?: string; mode?: string }>();
+  const tripMode = params.mode === "trip";
   const { session } = useSession();
   const { data } = useOnboarding();
   const token = session?.apiToken;
@@ -88,6 +91,7 @@ export default function MapScreen() {
     durationS: number;
   } | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [trip, setTrip] = useState<OneTripResult | null>(null);
 
   const selectedIngredient = catalog.find((i) => i.id === selectedId) ?? null;
   const recommended = useMemo(() => pickSafest(matches), [matches]);
@@ -140,6 +144,16 @@ export default function MapScreen() {
   }, [selectedId, coords, rayonKm]);
 
   useEffect(() => {
+    if (tripMode) {
+      loadActiveTrip()
+        .then((t) => {
+          setTrip(t);
+          if (!t) setError("Aucun trajet actif. Recalcule depuis Courses.");
+          else setSelectedPdvId(t.stops[0]?.point_de_vente.id ?? null);
+        })
+        .finally(() => setLoading(false));
+      return;
+    }
     if (!token) {
       setError("Session invalide.");
       setLoading(false);
@@ -159,11 +173,12 @@ export default function MapScreen() {
         setError(e instanceof ApiError ? e.detail : "Catalogue introuvable");
       })
       .finally(() => setLoading(false));
-  }, [token, prefId]);
+  }, [token, prefId, tripMode]);
 
   useEffect(() => {
+    if (tripMode) return;
     if (!loading && selectedId && coords) void search();
-  }, [loading, selectedId, coords, search]);
+  }, [loading, selectedId, coords, search, tripMode]);
 
   // HTML stable : ne dépend que de la position. Les marchés arrivent ensuite
   // via injectJavaScript (pas de reload Leaflet à chaque recherche).
@@ -189,6 +204,20 @@ export default function MapScreen() {
 
   const pushPointsToMap = useCallback(() => {
     if (!mapReady || !webviewRef.current) return;
+    if (tripMode && trip) {
+      const stops = trip.stops.map((s, i) => ({
+        id: s.point_de_vente.id,
+        nom: s.point_de_vente.nom,
+        lat: s.point_de_vente.latitude,
+        lon: s.point_de_vente.longitude,
+        order: i + 1,
+        label: s.items.map((it) => it.ingredient_nom).join(", "),
+      }));
+      webviewRef.current.injectJavaScript(
+        `window.setTripStops(${JSON.stringify(stops)}); true;`
+      );
+      return;
+    }
     const points = matchesToMapPoints(
       matches,
       recommended?.point_de_vente.id ?? null
@@ -197,7 +226,7 @@ export default function MapScreen() {
     webviewRef.current.injectJavaScript(
       `window.setPoints(${JSON.stringify(points)}, ${JSON.stringify(focusId)}); true;`
     );
-  }, [mapReady, matches, recommended]);
+  }, [mapReady, matches, recommended, tripMode, trip]);
 
   useEffect(() => {
     pushPointsToMap();
@@ -323,27 +352,38 @@ export default function MapScreen() {
             >
               <Feather name="arrow-left" size={20} color={colors.ink} />
             </Pressable>
-            <View style={styles.searchBox}>
-              <Feather name="search" size={16} color={colors.muted} />
-              <TextInput
-                value={query}
-                onChangeText={(t) => {
-                  setQuery(t);
-                  setSuggestionsOpen(true);
-                }}
-                onFocus={() => setSuggestionsOpen(true)}
-                placeholder={
-                  selectedIngredient
-                    ? selectedIngredient.nom
-                    : "Chercher un ingrédient…"
-                }
-                placeholderTextColor={colors.muted}
-                style={styles.searchInput}
-              />
-            </View>
+            {tripMode ? (
+              <View style={[styles.searchBox, { flex: 1 }]}>
+                <Feather name="navigation" size={16} color={colors.accent} />
+                <Text style={styles.searchInput} numberOfLines={1}>
+                  {trip
+                    ? `${trip.nb_arrets} arrêt(s) · ${trip.distance_totale_km} km`
+                    : "Trajet courses"}
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.searchBox}>
+                <Feather name="search" size={16} color={colors.muted} />
+                <TextInput
+                  value={query}
+                  onChangeText={(t) => {
+                    setQuery(t);
+                    setSuggestionsOpen(true);
+                  }}
+                  onFocus={() => setSuggestionsOpen(true)}
+                  placeholder={
+                    selectedIngredient
+                      ? selectedIngredient.nom
+                      : "Chercher un ingrédient…"
+                  }
+                  placeholderTextColor={colors.muted}
+                  style={styles.searchInput}
+                />
+              </View>
+            )}
           </View>
 
-          {suggestionsOpen && suggestions.length > 0 ? (
+          {!tripMode && suggestionsOpen && suggestions.length > 0 ? (
             <View style={styles.suggestions}>
               {suggestions.map((ing) => (
                 <Pressable
@@ -361,56 +401,63 @@ export default function MapScreen() {
             </View>
           ) : null}
 
-          <View style={styles.sortRow}>
-            {SORT_OPTIONS.map((opt) => {
-              const active = opt.value === sortMode;
-              return (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => setSortMode(opt.value)}
-                  style={[styles.sortChip, active && styles.sortChipActive]}
-                >
-                  <Text
-                    style={[
-                      styles.sortChipText,
-                      active && styles.sortChipTextActive,
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          {!tripMode ? (
+            <>
+              <View style={styles.sortRow}>
+                {SORT_OPTIONS.map((opt) => {
+                  const active = opt.value === sortMode;
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      onPress={() => setSortMode(opt.value)}
+                      style={[styles.sortChip, active && styles.sortChipActive]}
+                    >
+                      <Text
+                        style={[
+                          styles.sortChipText,
+                          active && styles.sortChipTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
 
-          <View style={styles.sortRow}>
-            <View style={styles.rayonLabel}>
-              <Feather name="circle" size={12} color={colors.muted} />
-              <Text style={styles.rayonLabelText}>Zone :</Text>
-            </View>
-            {RAYON_OPTIONS.map((km) => {
-              const active = km === rayonKm;
-              return (
-                <Pressable
-                  key={km}
-                  onPress={() => setRayonKm(km)}
-                  style={[styles.sortChip, active && styles.sortChipActive]}
-                >
-                  <Text
-                    style={[
-                      styles.sortChipText,
-                      active && styles.sortChipTextActive,
-                    ]}
-                  >
-                    {km} km
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+              <View style={styles.sortRow}>
+                <View style={styles.rayonLabel}>
+                  <Feather name="circle" size={12} color={colors.muted} />
+                  <Text style={styles.rayonLabelText}>Zone :</Text>
+                </View>
+                {RAYON_OPTIONS.map((km) => {
+                  const active = km === rayonKm;
+                  return (
+                    <Pressable
+                      key={km}
+                      onPress={() => setRayonKm(km)}
+                      style={[styles.sortChip, active && styles.sortChipActive]}
+                    >
+                      <Text
+                        style={[
+                          styles.sortChipText,
+                          active && styles.sortChipTextActive,
+                        ]}
+                      >
+                        {km} km
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          ) : trip ? (
+            <Text style={styles.tripHint}>{trip.message}</Text>
+          ) : null}
         </View>
 
-        {routeInfo && routeInfo.id === selectedPdvId ? (
+        {routeInfo &&
+        (routeInfo.id === selectedPdvId || routeInfo.id === "trip") ? (
           <View style={styles.routeBadge}>
             <Feather name="map-pin" size={13} color={colors.brand} />
             <Text style={styles.routeBadgeText}>
@@ -426,81 +473,124 @@ export default function MapScreen() {
       </View>
 
       <View style={styles.bottomArea}>
-        <View style={styles.legendRow}>
-          {SECURITE_FILTERS.map((f) => {
-            const active = !hiddenSecurities.includes(f.value);
-            return (
+        {tripMode && trip ? (
+          <>
+            <Pressable
+              style={styles.sortieCta}
+              onPress={() => router.push("/sortie-marche" as never)}
+            >
+              <Feather name="shopping-bag" size={18} color="#F7F3EA" />
+              <Text style={styles.sortieCtaText}>Lancer la sortie marché</Text>
+            </Pressable>
+            {trip.stops.map((s, i) => (
               <Pressable
-                key={f.value}
-                onPress={() => toggleSecurite(f.value)}
-                style={styles.legendItem}
+                key={s.point_de_vente.id}
+                style={[
+                  styles.tripStopCard,
+                  selectedPdvId === s.point_de_vente.id && styles.tripStopActive,
+                ]}
+                onPress={() => {
+                  setSelectedPdvId(s.point_de_vente.id);
+                  webviewRef.current?.injectJavaScript(
+                    `window.focusPoint(${JSON.stringify(s.point_de_vente.id)}); true;`
+                  );
+                }}
               >
-                <View
-                  style={[
-                    styles.legendDot,
-                    { backgroundColor: colors[f.color] },
-                    !active && styles.legendDotOff,
-                  ]}
-                />
-                <Text
-                  style={[styles.legendLabel, !active && styles.legendLabelOff]}
-                >
-                  {f.label}
+                <Text style={styles.tripStopTitle}>
+                  #{i + 1} {s.point_de_vente.nom}
+                </Text>
+                <Text style={styles.tripStopMeta}>
+                  {s.items.map((it) => it.ingredient_nom).join(", ")} · ~
+                  {Math.round(s.cout_estime)} Ar
                 </Text>
               </Pressable>
-            );
-          })}
-        </View>
+            ))}
+          </>
+        ) : (
+          <>
+            <View style={styles.legendRow}>
+              {SECURITE_FILTERS.map((f) => {
+                const active = !hiddenSecurities.includes(f.value);
+                return (
+                  <Pressable
+                    key={f.value}
+                    onPress={() => toggleSecurite(f.value)}
+                    style={styles.legendItem}
+                  >
+                    <View
+                      style={[
+                        styles.legendDot,
+                        { backgroundColor: colors[f.color] },
+                        !active && styles.legendDotOff,
+                      ]}
+                    />
+                    <Text
+                      style={[
+                        styles.legendLabel,
+                        !active && styles.legendLabelOff,
+                      ]}
+                    >
+                      {f.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
 
-        {error && matches.length > 0 ? (
-          <Text style={styles.error}>{error}</Text>
-        ) : null}
+            {error && matches.length > 0 ? (
+              <Text style={styles.error}>{error}</Text>
+            ) : null}
 
-        {sortedMatches.length > 0 ? (
-          <FlatList
-            ref={carouselRef}
-            data={sortedMatches}
-            keyExtractor={(m) => m.point_de_vente.id}
-            horizontal
-            pagingEnabled={false}
-            snapToInterval={cardWidth + space.sm}
-            decelerationRate="fast"
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: GUTTER, gap: space.sm }}
-            onMomentumScrollEnd={(ev) =>
-              onCardIndexChange(ev.nativeEvent.contentOffset.x)
-            }
-            getItemLayout={(_, index) => ({
-              length: cardWidth + space.sm,
-              offset: (cardWidth + space.sm) * index,
-              index,
-            })}
-            renderItem={({ item }) => (
-              <MarketCard
-                match={item}
-                recommended={
-                  item.point_de_vente.id === recommended?.point_de_vente.id
+            {sortedMatches.length > 0 ? (
+              <FlatList
+                ref={carouselRef}
+                data={sortedMatches}
+                keyExtractor={(m) => m.point_de_vente.id}
+                horizontal
+                pagingEnabled={false}
+                snapToInterval={cardWidth + space.sm}
+                decelerationRate="fast"
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  paddingHorizontal: GUTTER,
+                  gap: space.sm,
+                }}
+                onMomentumScrollEnd={(ev) =>
+                  onCardIndexChange(ev.nativeEvent.contentOffset.x)
                 }
-                width={cardWidth}
-                onVoirTrajet={() => focusPoint(item.point_de_vente.id)}
-                real={
-                  routeInfo && routeInfo.id === item.point_de_vente.id
-                    ? {
-                        distanceM: routeInfo.distanceM,
-                        durationS: routeInfo.durationS,
-                      }
-                    : null
-                }
+                getItemLayout={(_, index) => ({
+                  length: cardWidth + space.sm,
+                  offset: (cardWidth + space.sm) * index,
+                  index,
+                })}
+                renderItem={({ item }) => (
+                  <MarketCard
+                    match={item}
+                    recommended={
+                      item.point_de_vente.id === recommended?.point_de_vente.id
+                    }
+                    width={cardWidth}
+                    onVoirTrajet={() => focusPoint(item.point_de_vente.id)}
+                    real={
+                      routeInfo && routeInfo.id === item.point_de_vente.id
+                        ? {
+                            distanceM: routeInfo.distanceM,
+                            durationS: routeInfo.durationS,
+                          }
+                        : null
+                    }
+                  />
+                )}
               />
-            )}
-          />
-        ) : !loading && !searching ? (
-          <View style={styles.emptyCarousel}>
-            <Text style={styles.placeholderText}>
-              {error ?? "Aucun marché à afficher pour cet ingrédient."}
-            </Text>
-          </View>
-        ) : null}
+            ) : !loading && !searching ? (
+              <View style={styles.emptyCarousel}>
+                <Text style={styles.placeholderText}>
+                  {error ?? "Aucun marché à afficher pour cet ingrédient."}
+                </Text>
+              </View>
+            ) : null}
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -665,4 +755,36 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     fontSize: type.small,
   },
+  tripHint: {
+    color: colors.ink,
+    fontSize: type.small,
+    fontWeight: "600",
+    backgroundColor: colors.surface,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: radius.md,
+    overflow: "hidden",
+  },
+  sortieCta: {
+    marginHorizontal: GUTTER,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: colors.brand,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+  },
+  sortieCtaText: { color: "#F7F3EA", fontWeight: "700", fontSize: type.body },
+  tripStopCard: {
+    marginHorizontal: GUTTER,
+    padding: space.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  tripStopActive: { borderColor: colors.accent },
+  tripStopTitle: { fontWeight: "700", color: colors.brand, fontSize: type.body },
+  tripStopMeta: { fontSize: type.small, color: colors.muted, marginTop: 4 },
 });

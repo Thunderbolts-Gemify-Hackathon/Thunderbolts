@@ -34,6 +34,7 @@ const HIDDEN_PREFIXES = [
   "/map",
   "/cuisiner",
   "/assistant-vocal",
+  "/sortie-marche",
 ];
 
 export function BottomNavBar() {

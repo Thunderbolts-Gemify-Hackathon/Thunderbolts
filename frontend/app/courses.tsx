@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 
 import { ApiError } from "@/api/http";
 import { formatAr } from "@/api/market";
+import { planOneTrip, type OneTripResult } from "@/api/marketPanier";
 import { QUARTIER_COORDS } from "@/api/onboarding";
 import { terminerCourses } from "@/api/courses";
 import {
@@ -13,8 +14,11 @@ import {
   type PeriodeCourses,
 } from "@/api/planning";
 import { listIngredients } from "@/api/stock";
+import { approvisionnerStock } from "@/api/stockAlerts";
 import { todayIso, weekStartIso } from "@/lib/dates";
 import { useCustomCourses } from "@/lib/customCourses";
+import { enqueueMutation } from "@/lib/offlineQueue";
+import { saveActiveTrip } from "@/lib/tripStore";
 import { useOnboarding } from "@/onboarding/store";
 import { useSession } from "@/session/SessionContext";
 import { AddItemBar } from "@/ui/AddItemBar";
@@ -54,10 +58,17 @@ export default function CoursesScreen() {
   const [error, setError] = useState<string | null>(null);
   const [catalogue, setCatalogue] = useState<string[]>([]);
   const [terminating, setTerminating] = useState(false);
+  const [trip, setTrip] = useState<OneTripResult | null>(null);
+  const [tripLoading, setTripLoading] = useState(false);
   const custom = useCustomCourses(profilId, token);
 
   const quartier = data.localisation.quartier;
-  const coords = quartier ? QUARTIER_COORDS[quartier] : null;
+  const coords = useMemo(() => {
+    if (session?.localisationLat != null && session?.localisationLon != null) {
+      return { lat: session.localisationLat, lon: session.localisationLon };
+    }
+    return quartier ? QUARTIER_COORDS[quartier] : null;
+  }, [session?.localisationLat, session?.localisationLon, quartier]);
   const dateDebut = useMemo(
     () => (periode === "jour" ? todayIso() : weekStartIso()),
     [periode]
@@ -108,21 +119,85 @@ export default function CoursesScreen() {
 
   const onTerminer = async () => {
     if (!profilId || !token) return;
-    const ids = custom.items.filter((i) => i.fait && !i.id.startsWith("local-")).map((i) => i.id);
-    if (!ids.length) {
-      setError("Coche d'abord les articles achetés.");
+    const customIds = custom.items
+      .filter((i) => i.fait && !i.id.startsWith("local-"))
+      .map((i) => i.id);
+    const stockItems = aAcheter.map((i) => ({
+      ingredient_id: i.ingredient.id,
+      quantite: i.quantite_a_acheter,
+      unite: i.unite,
+    }));
+
+    if (!customIds.length && !stockItems.length) {
+      setError("Rien à enregistrer : coche tes ajouts ou génère une liste à acheter.");
       return;
     }
     setTerminating(true);
     setError(null);
     try {
-      await terminerCourses(profilId, token, ids);
-      await custom.reload();
+      if (stockItems.length) {
+        await approvisionnerStock(
+          profilId,
+          { items: stockItems, label: `Courses ${periode}` },
+          token
+        );
+      }
+      if (customIds.length) {
+        await terminerCourses(profilId, token, customIds);
+        await custom.reload();
+      }
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.detail : "Impossible de terminer les courses");
+      if (stockItems.length) {
+        await enqueueMutation({
+          method: "POST",
+          path: `/stock/${profilId}/approvisionner`,
+          body: { items: stockItems, label: `Courses ${periode}` },
+          token,
+        });
+        setError(
+          "Hors ligne : courses mises en file, sync auto au retour du réseau."
+        );
+      } else {
+        setError(e instanceof ApiError ? e.detail : "Impossible de terminer les courses");
+      }
     } finally {
       setTerminating(false);
+    }
+  };
+
+  const onOneTrip = async () => {
+    if (!coords) {
+      setError("Localisation manquante : complète ton quartier dans le profil.");
+      return;
+    }
+    if (!aAcheter.length) {
+      setError("Rien à acheter pour calculer un trajet.");
+      return;
+    }
+    setTripLoading(true);
+    setError(null);
+    try {
+      const res = await planOneTrip({
+        lat: coords.lat,
+        lon: coords.lon,
+        rayon_km: 15,
+        profil_id: profilId ?? undefined,
+        budget: liste?.estimation?.cout_total_estime,
+        items: aAcheter.map((i) => ({
+          ingredient_id: i.ingredient.id,
+          ingredient_nom: i.ingredient.nom,
+          quantite: i.quantite_a_acheter,
+          unite: i.unite,
+        })),
+      });
+      setTrip(res);
+      await saveActiveTrip(res);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.detail : "Trajet impossible à calculer");
+      setTrip(null);
+    } finally {
+      setTripLoading(false);
     }
   };
 
@@ -130,6 +205,11 @@ export default function CoursesScreen() {
     <Screen
       footer={
         <View style={styles.actions}>
+          <Button
+            label={tripLoading ? "Calcul du trajet…" : "Un trajet (marchés)"}
+            onPress={() => void onOneTrip()}
+            disabled={loading || tripLoading || !aAcheter.length}
+          />
           <Button
             label="Courses terminées → stock"
             onPress={() => void onTerminer()}
@@ -217,6 +297,40 @@ export default function CoursesScreen() {
               </Text>
             ) : null}
           </View>
+
+          {trip ? (
+            <View style={styles.tripCard}>
+              <Text style={styles.tripTitle}>{trip.message}</Text>
+              <Text style={styles.tripMeta}>
+                {trip.nb_arrets} arrêt(s) · {trip.distance_totale_km} km · ~
+                {formatAr(trip.cout_estime)}
+              </Text>
+              {trip.stops.map((s) => (
+                <Pressable
+                  key={s.point_de_vente.id}
+                  style={styles.tripStop}
+                  onPress={() => router.push("/map?mode=trip" as Href)}
+                >
+                  <Text style={styles.tripStopNom}>{s.point_de_vente.nom}</Text>
+                  <Text style={styles.tripStopMeta}>
+                    {s.distance_km} km · {s.items.length} produit(s) · ~
+                    {formatAr(s.cout_estime)}
+                  </Text>
+                </Pressable>
+              ))}
+              <View style={styles.tripActions}>
+                <Button
+                  label="Voir sur la carte"
+                  onPress={() => router.push("/map?mode=trip" as Href)}
+                />
+                <Button
+                  label="Lancer la sortie"
+                  variant="ghost"
+                  onPress={() => router.push("/sortie-marche" as Href)}
+                />
+              </View>
+            </View>
+          ) : null}
 
           <View style={styles.filters}>
             <Pressable
@@ -391,4 +505,21 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
   },
   actionText: { color: colors.brand, fontWeight: "700", fontSize: type.label },
+  tripCard: {
+    backgroundColor: colors.brandSoft,
+    borderRadius: radius.md,
+    padding: space.md,
+    gap: space.sm,
+  },
+  tripTitle: { fontSize: type.body, fontWeight: "700", color: colors.ink },
+  tripMeta: { fontSize: type.small, color: colors.muted, fontWeight: "600" },
+  tripStop: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.sm,
+    padding: space.sm,
+    gap: 2,
+  },
+  tripStopNom: { fontWeight: "700", color: colors.brand, fontSize: type.body },
+  tripStopMeta: { fontSize: type.small, color: colors.muted },
+  tripActions: { gap: space.sm, marginTop: space.sm },
 });

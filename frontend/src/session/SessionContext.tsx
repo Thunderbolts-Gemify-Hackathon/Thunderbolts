@@ -9,11 +9,21 @@ import {
   type ReactNode,
 } from "react";
 
+import {
+  notifyAuthBundleChange,
+  onAuthBundleChange,
+  setAuthBundle,
+} from "@/lib/authTokens";
+
 const STORAGE_KEY = "kalitao.session";
 
 export type Session = {
   utilisateurId: string;
   apiToken: string;
+  /** JWT access (court). */
+  accessToken?: string;
+  /** JWT refresh (long). */
+  refreshToken?: string;
   prenom: string;
   email: string;
   /** Profil personnel (onboarding). */
@@ -41,6 +51,14 @@ type Ctx = {
 
 const SessionContext = createContext<Ctx | null>(null);
 
+function syncAuthFromSession(s: Session | null) {
+  setAuthBundle({
+    apiToken: s?.apiToken ?? null,
+    accessToken: s?.accessToken ?? null,
+    refreshToken: s?.refreshToken ?? null,
+  });
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSessionState] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
@@ -48,13 +66,36 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((raw) => {
-        if (raw) setSessionState(JSON.parse(raw) as Session);
+        if (raw) {
+          const parsed = JSON.parse(raw) as Session;
+          setSessionState(parsed);
+          syncAuthFromSession(parsed);
+        }
       })
       .finally(() => setReady(true));
   }, []);
 
+  // Quand http.ts refresh un JWT, on persiste les nouveaux tokens.
+  useEffect(() => {
+    onAuthBundleChange((bundle) => {
+      setSessionState((prev) => {
+        if (!prev) return prev;
+        const next: Session = {
+          ...prev,
+          apiToken: bundle.apiToken ?? prev.apiToken,
+          accessToken: bundle.accessToken ?? undefined,
+          refreshToken: bundle.refreshToken ?? undefined,
+        };
+        void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        return next;
+      });
+    });
+    return () => onAuthBundleChange(null);
+  }, []);
+
   const setSession = useCallback(async (s: Session) => {
     setSessionState(s);
+    syncAuthFromSession(s);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(s));
   }, []);
 
@@ -62,6 +103,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSessionState((prev) => {
       if (!prev) return prev;
       const next = { ...prev, ...patch };
+      syncAuthFromSession(next);
       void AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       return next;
     });
@@ -69,6 +111,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const clearSession = useCallback(async () => {
     setSessionState(null);
+    syncAuthFromSession(null);
+    notifyAuthBundleChange({
+      apiToken: null,
+      accessToken: null,
+      refreshToken: null,
+    });
     await AsyncStorage.removeItem(STORAGE_KEY);
   }, []);
 

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { ApiError } from "@/api/http";
-import { createUtilisateur } from "@/api/utilisateur";
+import { createUtilisateur, loginJwt } from "@/api/utilisateur";
 import { isValidDateNaissance, isValidEmail } from "@/lib/validators";
 import { useSession } from "@/session/SessionContext";
 import { AuthField } from "@/ui/AuthField";
@@ -81,9 +81,25 @@ export default function SignUpScreen() {
         date_naissance: dateNaissance.trim(),
         mot_de_passe: motDePasse,
       });
+      let accessToken: string | undefined;
+      let refreshToken: string | undefined;
+      let apiToken = user.api_token;
+      try {
+        const jwt = await loginJwt({
+          email: email.trim().toLowerCase(),
+          mot_de_passe: motDePasse,
+        });
+        accessToken = jwt.access_token;
+        refreshToken = jwt.refresh_token;
+        apiToken = jwt.api_token || user.api_token;
+      } catch {
+        /* api_token suffit en fallback */
+      }
       await setSession({
         utilisateurId: user.id,
-        apiToken: user.api_token,
+        apiToken,
+        accessToken,
+        refreshToken,
         prenom: user.prenom,
         email: user.email,
       });

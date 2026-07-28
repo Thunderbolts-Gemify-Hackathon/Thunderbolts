@@ -1,7 +1,17 @@
 import { Feather } from "@expo/vector-icons";
-import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
+import DateTimePicker, {
+  DateTimePickerAndroid,
+} from "@react-native-community/datetimepicker";
 import { useState } from "react";
-import { Modal, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 import { Button } from "@/ui/Button";
 import { colors, radius, space, type } from "@/theme";
@@ -41,10 +51,25 @@ function formatFr(value: string): string {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
-export function DateField({ value, onChange, placeholder, error, onBlur }: Props) {
-  const [iosPickerOpen, setIosPickerOpen] = useState(false);
+function todayIso(): string {
+  return toIso(new Date());
+}
+
+/**
+ * Mobile-first : Android = dialog natif, iOS = modal wheel/calendar.
+ * Web (tests navigateur) : même modal + input HTML type=date (fiable dans Expo web).
+ */
+export function DateField({
+  value,
+  onChange,
+  placeholder,
+  error,
+  onBlur,
+}: Props) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [draft, setDraft] = useState<Date>(parseIso(value) ?? defaultDate());
   const showError = !!error;
+  const useModalPicker = Platform.OS === "ios" || Platform.OS === "web";
 
   const openPicker = () => {
     const initial = parseIso(value) ?? defaultDate();
@@ -61,7 +86,13 @@ export function DateField({ value, onChange, placeholder, error, onBlur }: Props
       return;
     }
     setDraft(initial);
-    setIosPickerOpen(true);
+    setPickerOpen(true);
+  };
+
+  const confirmDraft = () => {
+    onChange(toIso(draft));
+    onBlur?.();
+    setPickerOpen(false);
   };
 
   return (
@@ -71,43 +102,66 @@ export function DateField({ value, onChange, placeholder, error, onBlur }: Props
         onPress={openPicker}
         accessibilityRole="button"
       >
-        <Feather name="calendar" size={18} color={showError ? colors.danger : colors.muted} />
+        <Feather
+          name="calendar"
+          size={18}
+          color={showError ? colors.danger : colors.muted}
+        />
         <Text style={[styles.text, !value && styles.placeholder]}>
           {value ? formatFr(value) : placeholder}
         </Text>
       </Pressable>
       {showError ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      {Platform.OS === "ios" ? (
+      {useModalPicker ? (
         <Modal
-          visible={iosPickerOpen}
+          visible={pickerOpen}
           transparent
           animationType="fade"
-          onRequestClose={() => setIosPickerOpen(false)}
+          onRequestClose={() => setPickerOpen(false)}
         >
-          <View style={styles.overlay}>
-            <View style={styles.card}>
+          <Pressable
+            style={styles.overlay}
+            onPress={() => setPickerOpen(false)}
+          >
+            <Pressable style={styles.card} onPress={(e) => e.stopPropagation?.()}>
               <Text style={styles.cardTitle}>Date de naissance</Text>
-              <DateTimePicker
-                value={draft}
-                mode="date"
-                display="inline"
-                maximumDate={new Date()}
-                onChange={(_, selected) => {
-                  if (selected) setDraft(selected);
-                }}
-              />
-              <Button
-                label="Valider"
-                rounded
-                onPress={() => {
-                  onChange(toIso(draft));
-                  onBlur?.();
-                  setIosPickerOpen(false);
-                }}
-              />
-            </View>
-          </View>
+
+              {Platform.OS === "web" ? (
+                <TextInput
+                  // RN Web mappe type="date" vers <input type="date">
+                  // @ts-expect-error — prop web-only
+                  type="date"
+                  value={toIso(draft)}
+                  onChangeText={(text) => {
+                    const next = parseIso(text);
+                    if (next) setDraft(next);
+                  }}
+                  max={todayIso()}
+                  style={styles.webDateInput}
+                  accessibilityLabel="Date de naissance"
+                />
+              ) : (
+                <DateTimePicker
+                  value={draft}
+                  mode="date"
+                  display="inline"
+                  maximumDate={new Date()}
+                  onChange={(_, selected) => {
+                    if (selected) setDraft(selected);
+                  }}
+                />
+              )}
+
+              <Button label="Valider" rounded onPress={confirmDraft} />
+              <Pressable
+                onPress={() => setPickerOpen(false)}
+                style={styles.cancelBtn}
+              >
+                <Text style={styles.cancelLabel}>Annuler</Text>
+              </Pressable>
+            </Pressable>
+          </Pressable>
         </Modal>
       ) : null}
     </View>
@@ -127,7 +181,12 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   wrapError: { borderColor: colors.danger },
-  text: { flex: 1, fontSize: type.body, color: colors.ink, paddingVertical: space.sm },
+  text: {
+    flex: 1,
+    fontSize: type.body,
+    color: colors.ink,
+    paddingVertical: space.sm,
+  },
   placeholder: { color: colors.muted },
   errorText: {
     color: colors.danger,
@@ -145,10 +204,30 @@ const styles = StyleSheet.create({
   },
   card: {
     width: "100%",
+    maxWidth: 420,
     backgroundColor: colors.surface,
     borderRadius: radius.lg,
     padding: space.lg,
     gap: space.md,
   },
   cardTitle: { fontSize: type.label, fontWeight: "700", color: colors.ink },
+  webDateInput: {
+    minHeight: 48,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: radius.md,
+    paddingHorizontal: space.md,
+    fontSize: type.body,
+    color: colors.ink,
+    backgroundColor: colors.bg,
+  },
+  cancelBtn: {
+    alignItems: "center",
+    paddingVertical: space.sm,
+  },
+  cancelLabel: {
+    color: colors.muted,
+    fontWeight: "600",
+    fontSize: type.body,
+  },
 });

@@ -175,17 +175,21 @@ def filtrer_recettes_compatibles(
 def selectionner_recettes_semaine(
     recettes_filtrees: list[dict[str, Any]], nb_jours: int
 ) -> list[dict[str, Any]]:
-    """Choisit un repas par créneau et par jour en privilégiant `_rank_score`,
-    sans répéter la même recette sur un créneau deux jours de suite."""
-    # Déjà triées par rank si passées via rank_recettes ; on re-trie au cas où.
+    """Choisit un repas par créneau et par jour en privilégiant le score,
+    en maximisant la diversité (évite les cycles A/B/A/B et les monos-plats)."""
     ordered = sorted(
         recettes_filtrees,
-        key=lambda r: (-float(r.get("_rank_score") or 0), r.get("nom") or ""),
+        key=lambda r: (
+            -float(r.get("_rank_score") or 0),
+            -float(r.get("_couverture") or 0),
+            r.get("nom") or "",
+        ),
     )
     par_creneau = {
         slot: [r for r in ordered if slot in (r.get("tags") or [])] for slot in MEAL_SLOTS
     }
     derniere_par_creneau: dict[str, str | None] = dict.fromkeys(MEAL_SLOTS)
+    used_counts: dict[str, int] = {}
 
     selection: list[dict[str, Any]] = []
     for _ in range(nb_jours):
@@ -193,15 +197,72 @@ def selectionner_recettes_semaine(
             candidats = par_creneau[slot] or ordered
             if not candidats:
                 continue
-            choix = _choisir_sans_repetition(candidats, derniere_par_creneau[slot])
+            choix = _choisir_diversifie(
+                candidats, derniere_par_creneau[slot], used_counts
+            )
             derniere_par_creneau[slot] = choix["id"]
+            used_counts[choix["id"]] = used_counts.get(choix["id"], 0) + 1
             selection.append(choix)
     return selection
 
 
+def pool_candidats_planning(
+    recettes_filtrees: list[dict[str, Any]],
+    *,
+    par_creneau: int = 10,
+) -> list[dict[str, Any]]:
+    """Pool large pour Gemma : top N recettes par créneau, sans doublon d'id.
+
+    Contrairement à `selectionner_recettes_semaine`, on ne pré-fixe pas le planning :
+    le modèle choisit dans un menu varié (sinon 1 seul PD → kitoza tous les matins).
+    """
+    ordered = sorted(
+        recettes_filtrees,
+        key=lambda r: (
+            -float(r.get("_rank_score") or 0),
+            -float(r.get("_couverture") or 0),
+            r.get("nom") or "",
+        ),
+    )
+    seen: set[str] = set()
+    pool: list[dict[str, Any]] = []
+    for slot in MEAL_SLOTS:
+        n_slot = 0
+        for recette in ordered:
+            if slot not in (recette.get("tags") or []):
+                continue
+            rid = recette["id"]
+            if rid in seen:
+                continue
+            seen.add(rid)
+            pool.append(recette)
+            n_slot += 1
+            if n_slot >= par_creneau:
+                break
+    return pool
+
+
+def _choisir_diversifie(
+    candidats: list[dict[str, Any]],
+    derniere_id: str | None,
+    used_counts: dict[str, int],
+) -> dict[str, Any]:
+    """Préfère les recettes peu utilisées, hors dernière, puis meilleur score."""
+
+    def key(c: dict[str, Any]) -> tuple:
+        return (
+            used_counts.get(c["id"], 0),
+            1 if c["id"] == derniere_id else 0,
+            -float(c.get("_rank_score") or 0),
+            -float(c.get("_couverture") or 0),
+            c.get("nom") or "",
+        )
+
+    return min(candidats, key=key)
+
+
+# Rétrocompat tests / imports
 def _choisir_sans_repetition(
     candidats: list[dict[str, Any]], derniere_id: str | None
 ) -> dict[str, Any]:
-    """Prend le meilleur score hors dernière id (liste déjà triée par rank)."""
-    pool = [c for c in candidats if c["id"] != derniere_id] or candidats
-    return pool[0]
+    return _choisir_diversifie(candidats, derniere_id, {})

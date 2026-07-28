@@ -39,3 +39,164 @@
 {"ts": "2026-07-27T20:20:12.118836+00:00", "event": "json_parse_ok"}
 {"ts": "2026-07-27T20:20:12.140257+00:00", "event": "json_parse_fail", "detail": {"preview": "1. Faire cuire le riz.\n2. Ajouter le poulet."}}
 {"ts": "2026-07-27T20:20:12.262684+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:36:50.738004+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "253ec123-fc26-4a2a-9625-3b9f4f483484", "type_repas": "diner"}}
+{"ts": "2026-07-27T20:36:50.738406+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "253ec123-fc26-4a2a-9625-3b9f4f483484", "type_repas": "diner"}}
+{"ts": "2026-07-27T20:38:13.400499+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "b7c4cc70-2c21-4aac-83a1-a48d49c4df39", "type_repas": "diner"}}
+{"ts": "2026-07-27T20:38:16.493756+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "b7c4cc70-2c21-4aac-83a1-a48d49c4df39", "type_repas": "diner"}}
+{"ts": "2026-07-27T20:38:17.509868+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "b7c4cc70-2c21-4aac-83a1-a48d49c4df39", "type_repas": "diner"}}
+{"ts": "2026-07-27T20:38:57.237350+00:00", "event": "tool_ok", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"tool": "find_nearest_supermarkets"}}
+{"ts": "2026-07-27T20:39:01.055270+00:00", "event": "tool_fail", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"tool": "find_nearby_supermarkets", "error": "Outil inconnu: find_nearby_supermarkets"}}
+{"ts": "2026-07-27T20:39:05.265860+00:00", "event": "tool_ok", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"tool": "find_nearest_supermarkets"}}
+{"ts": "2026-07-27T20:39:08.897342+00:00", "event": "tool_ok", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"tool": "find_nearest_supermarkets"}}
+{"ts": "2026-07-27T20:39:12.187392+00:00", "event": "tool_ok", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"tool": "find_nearest_supermarkets"}}
+{"ts": "2026-07-27T20:39:12.187871+00:00", "event": "chat_fail", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "latency_ms": 31902.76391700172, "detail": "Limite d'itérations d'outils atteinte sans réponse finale de Gemma"}
+{"ts": "2026-07-27T20:39:34.711963+00:00", "event": "tool_fail", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"tool": "find_nearby_market", "error": "'ingredient_nom'"}}
+{"ts": "2026-07-27T20:39:37.720163+00:00", "event": "tool_fail", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"tool": "find_nearby_market", "error": "Ingrédient introuvable: nouilles"}}
+{"ts": "2026-07-27T20:39:40.556512+00:00", "event": "tool_fail", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"tool": "find_nearby_market", "error": "Ingrédient introuvable: nouilles"}}
+{"ts": "2026-07-27T20:39:43.584956+00:00", "event": "tool_fail", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"tool": "find_nearby_market", "error": "Ingrédient introuvable: nouilles"}}
+{"ts": "2026-07-27T20:39:45.907875+00:00", "event": "tool_fail", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"tool": "find_nearby_market", "error": "Ingrédient introuvable: nouilles"}}
+{"ts": "2026-07-27T20:39:45.908083+00:00", "event": "chat_fail", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "latency_ms": 20175.278041999263, "detail": "Limite d'itérations d'outils atteinte sans réponse finale de Gemma"}
+{"ts": "2026-07-27T20:41:11.001260+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:41:11.002323+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:41:11.002897+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:41:11.003565+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:41:11.004098+00:00", "event": "json_parse_fail", "detail": {"preview": "pas du json du tout"}}
+{"ts": "2026-07-27T20:41:11.004262+00:00", "event": "json_parse_fail", "detail": {"preview": ""}}
+{"ts": "2026-07-27T20:41:11.004387+00:00", "event": "json_parse_fail", "detail": {"preview": "42"}}
+{"ts": "2026-07-27T20:41:11.016507+00:00", "event": "tool_loop_repeat", "profil_id": "profil-test", "detail": {"signature": "[{\"arguments\": {}, \"name\": \"find_nearest_supermarkets\"}]"}}
+{"ts": "2026-07-27T20:41:24.171828+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:41:24.172837+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:41:24.173429+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:41:24.174102+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:41:24.174657+00:00", "event": "json_parse_fail", "detail": {"preview": "pas du json du tout"}}
+{"ts": "2026-07-27T20:41:24.174798+00:00", "event": "json_parse_fail", "detail": {"preview": ""}}
+{"ts": "2026-07-27T20:41:24.174916+00:00", "event": "json_parse_fail", "detail": {"preview": "42"}}
+{"ts": "2026-07-27T20:41:24.186635+00:00", "event": "tool_loop_repeat", "profil_id": "profil-test", "detail": {"signature": "[{\"arguments\": {}, \"name\": \"find_nearest_supermarkets\"}]"}}
+{"ts": "2026-07-27T20:42:16.121500+00:00", "event": "tool_ok", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"tool": "check_budget"}}
+{"ts": "2026-07-27T20:42:19.303672+00:00", "event": "tool_ok", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"tool": "check_budget"}}
+{"ts": "2026-07-27T20:42:23.192294+00:00", "event": "tool_loop_repeat", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"signature": "[{\"arguments\": {\"cout_estime\": 20000.0}, \"name\": \"check_budget\"}]"}}
+{"ts": "2026-07-27T20:42:33.577889+00:00", "event": "chat_ok", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "latency_ms": 24310.355958998116}
+{"ts": "2026-07-27T20:43:04.630970+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "253ec123-fc26-4a2a-9625-3b9f4f483484", "type_repas": "diner"}}
+{"ts": "2026-07-27T20:43:04.631465+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "253ec123-fc26-4a2a-9625-3b9f4f483484", "type_repas": "diner"}}
+{"ts": "2026-07-27T20:44:02.727443+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:47:11.034615+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:47:11.060525+00:00", "event": "planning_ok", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "latency_ms": 76666.0848749998}
+{"ts": "2026-07-27T20:52:19.955804+00:00", "event": "json_parse_fail", "detail": {"preview": "{\n  \"Étapes de préparation du Poulet Coco\": [\n    {\"titre\": \"Préparer le poulet\", \"ingredients\": [\"poulet\"]},\n    {\"titr"}}
+{"ts": "2026-07-27T20:54:27.614615+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:54:27.621885+00:00", "event": "planning_fail", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "latency_ms": 29940.29637499989, "detail": "Gemma n'a proposé aucun repas valide parmi les recettes candidates"}
+{"ts": "2026-07-27T20:57:42.935671+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T20:57:43.002533+00:00", "event": "planning_ok", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "latency_ms": 49432.577167001}
+{"ts": "2026-07-27T20:59:35.394036+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "fa4a1579-9f89-4dd2-be38-f7c8f1ce35c3", "type_repas": "diner"}}
+{"ts": "2026-07-27T20:59:35.395642+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "fa4a1579-9f89-4dd2-be38-f7c8f1ce35c3", "type_repas": "diner"}}
+{"ts": "2026-07-27T20:59:59.979507+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "fa4a1579-9f89-4dd2-be38-f7c8f1ce35c3", "type_repas": "diner"}}
+{"ts": "2026-07-27T20:59:59.981046+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "fa4a1579-9f89-4dd2-be38-f7c8f1ce35c3", "type_repas": "diner"}}
+{"ts": "2026-07-27T21:00:07.187626+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "de0efc40-d07e-4dd8-b92c-6a0afb3ca84e", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:00:07.197488+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "de0efc40-d07e-4dd8-b92c-6a0afb3ca84e", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:01:07.508352+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:01:12.753860+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:01:12.754715+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:01:12.755308+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:01:12.755969+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:01:12.756542+00:00", "event": "json_parse_fail", "detail": {"preview": "pas du json du tout"}}
+{"ts": "2026-07-27T21:01:12.756685+00:00", "event": "json_parse_fail", "detail": {"preview": ""}}
+{"ts": "2026-07-27T21:01:12.756820+00:00", "event": "json_parse_fail", "detail": {"preview": "42"}}
+{"ts": "2026-07-27T21:01:12.766482+00:00", "event": "tool_loop_repeat", "profil_id": "profil-test", "detail": {"signature": "[{\"arguments\": {}, \"name\": \"find_nearest_supermarkets\"}]"}}
+{"ts": "2026-07-27T21:01:12.787551+00:00", "event": "tool_ok", "profil_id": "1a3c6a41-0128-423d-bd15-7ee5eb036af9", "detail": {"tool": "find_nearest_supermarkets"}}
+{"ts": "2026-07-27T21:01:12.803266+00:00", "event": "tool_fail", "profil_id": "8fa0690c-9ad4-410e-ae79-23e083a037eb", "detail": {"tool": "find_nearest_supermarkets", "error": "Localisation manquante pour ce profil"}}
+{"ts": "2026-07-27T21:01:12.823173+00:00", "event": "tool_ok", "profil_id": "dd80b7f0-2078-48fd-af8c-c1f93c92da80", "detail": {"tool": "find_nearby_market"}}
+{"ts": "2026-07-27T21:01:12.836492+00:00", "event": "tool_fail", "profil_id": "27004d69-4618-40c4-b797-feeba621d004", "detail": {"tool": "outil_inexistant", "error": "Outil inconnu: outil_inexistant"}}
+{"ts": "2026-07-27T21:01:14.805108+00:00", "event": "ce_soir", "profil_id": "4db3ea91-f381-4304-9b7a-14967769638c", "detail": {"recette_id": "9584ae9b-2f0b-4d21-bc6e-6b01558b9964", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:01:14.864495+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:01:14.941396+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:01:14.961933+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:01:14.982937+00:00", "event": "json_parse_fail", "detail": {"preview": "1. Faire cuire le riz.\n2. Ajouter le poulet."}}
+{"ts": "2026-07-27T21:01:15.041926+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:05:11.071072+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:11.200428+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:11.229964+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:11.369400+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:11.369889+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:11.408237+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:11.409561+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:11.440720+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:11.449896+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:11.469353+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:17.097674+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:17.137345+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:17.170331+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:17.186623+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:17.218112+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:17.236755+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:17.260591+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:17.279494+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:17.303811+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:17.317273+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:21.062162+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:21.112331+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:21.238415+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:21.374876+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:21.463922+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:21.508900+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:21.561595+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:21.644460+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:21.659737+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:21.718404+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:24.034322+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:24.117100+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:24.140816+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:24.157103+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:24.178525+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:24.200186+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:24.212159+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:24.238493+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:24.248749+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:05:24.265909+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:07:22.874130+00:00", "event": "ce_soir", "profil_id": "de2b9eb8-d0c4-4edc-af9c-986521039f43", "detail": {"recette_id": "98723743-60b3-4f75-84af-bf643685fd35", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:07:34.379308+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:07:34.380277+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:07:34.381783+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:07:34.382590+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:07:34.383179+00:00", "event": "json_parse_fail", "detail": {"preview": "pas du json du tout"}}
+{"ts": "2026-07-27T21:07:34.383334+00:00", "event": "json_parse_fail", "detail": {"preview": ""}}
+{"ts": "2026-07-27T21:07:34.383462+00:00", "event": "json_parse_fail", "detail": {"preview": "42"}}
+{"ts": "2026-07-27T21:07:34.393787+00:00", "event": "tool_loop_repeat", "profil_id": "profil-test", "detail": {"signature": "[{\"arguments\": {}, \"name\": \"find_nearest_supermarkets\"}]"}}
+{"ts": "2026-07-27T21:07:34.428413+00:00", "event": "tool_ok", "profil_id": "93ae8aa1-8822-40f4-b23e-033df7d3d5ec", "detail": {"tool": "find_nearest_supermarkets"}}
+{"ts": "2026-07-27T21:07:34.446730+00:00", "event": "tool_fail", "profil_id": "ed2d3d49-33af-4cab-a83c-d080f1f8b4ac", "detail": {"tool": "find_nearest_supermarkets", "error": "Localisation manquante pour ce profil"}}
+{"ts": "2026-07-27T21:07:34.476109+00:00", "event": "tool_ok", "profil_id": "b21e1b5c-29b2-4e7e-b313-82383ed62e5c", "detail": {"tool": "find_nearby_market"}}
+{"ts": "2026-07-27T21:07:34.490442+00:00", "event": "tool_fail", "profil_id": "2fe80d26-20ec-4a15-92fb-f2fa27997295", "detail": {"tool": "outil_inexistant", "error": "Outil inconnu: outil_inexistant"}}
+{"ts": "2026-07-27T21:07:37.578256+00:00", "event": "ce_soir", "profil_id": "e8c2aedc-36c1-4e4f-9d37-6526edb121f5", "detail": {"recette_id": "2c4fdbf3-00fc-4c02-97a3-7b1042d12466", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:07:37.934206+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:07:37.970882+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:07:37.998136+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:07:38.021917+00:00", "event": "json_parse_fail", "detail": {"preview": "1. Faire cuire le riz.\n2. Ajouter le poulet."}}
+{"ts": "2026-07-27T21:07:38.086971+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-27T21:08:17.530283+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-27T21:08:17.539922+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "f0ae85e9-966f-4307-84a4-47006e1b7d11", "type_repas": "petit_dejeuner"}}
+{"ts": "2026-07-28T20:38:58.036158+00:00", "event": "tool_ok", "profil_id": "089a2e40-9a13-41f9-aaaa-32d2649c80ad", "detail": {"tool": "find_nearest_supermarkets"}}
+{"ts": "2026-07-28T20:38:58.082080+00:00", "event": "tool_fail", "profil_id": "82cc99fc-5a24-4c13-98f8-ff80ba47a3c7", "detail": {"tool": "find_nearest_supermarkets", "error": "Localisation manquante pour ce profil"}}
+{"ts": "2026-07-28T20:38:58.153698+00:00", "event": "tool_ok", "profil_id": "c29b73c4-b29a-4674-92de-fc9d42deda33", "detail": {"tool": "find_nearby_market"}}
+{"ts": "2026-07-28T20:38:58.186943+00:00", "event": "tool_fail", "profil_id": "df2c01a5-5e61-4530-9394-8b6d3ad89b96", "detail": {"tool": "outil_inexistant", "error": "Outil inconnu: outil_inexistant"}}
+{"ts": "2026-07-28T20:38:58.244357+00:00", "event": "tool_ok", "profil_id": "a6e07cf4-945d-4ed2-9598-85971de192c3", "detail": {"tool": "optimize_one_trip"}}
+{"ts": "2026-07-28T20:39:22.108795+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-28T20:39:22.110060+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-28T20:39:22.110715+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-28T20:39:22.111420+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-28T20:39:22.111991+00:00", "event": "json_parse_fail", "detail": {"preview": "pas du json du tout"}}
+{"ts": "2026-07-28T20:39:22.112145+00:00", "event": "json_parse_fail", "detail": {"preview": ""}}
+{"ts": "2026-07-28T20:39:22.112268+00:00", "event": "json_parse_fail", "detail": {"preview": "42"}}
+{"ts": "2026-07-28T20:39:22.121261+00:00", "event": "tool_loop_repeat", "profil_id": "profil-test", "detail": {"signature": "[{\"arguments\": {}, \"name\": \"find_nearest_supermarkets\"}]"}}
+{"ts": "2026-07-28T20:39:22.145146+00:00", "event": "tool_ok", "profil_id": "54736fdb-5e01-46ac-bc68-82ada77c1cc4", "detail": {"tool": "find_nearest_supermarkets"}}
+{"ts": "2026-07-28T20:39:22.161038+00:00", "event": "tool_fail", "profil_id": "979a876e-7228-43fb-969b-82f46448c3c7", "detail": {"tool": "find_nearest_supermarkets", "error": "Localisation manquante pour ce profil"}}
+{"ts": "2026-07-28T20:39:22.184300+00:00", "event": "tool_ok", "profil_id": "cbe23a9b-4cbd-4b2e-855e-d532347d91e8", "detail": {"tool": "find_nearby_market"}}
+{"ts": "2026-07-28T20:39:22.199484+00:00", "event": "tool_fail", "profil_id": "22b66711-231e-4cda-875d-8091ef9ed8d3", "detail": {"tool": "outil_inexistant", "error": "Outil inconnu: outil_inexistant"}}
+{"ts": "2026-07-28T20:39:22.220774+00:00", "event": "tool_ok", "profil_id": "b1d915ff-17e8-4e9c-9043-3e582def8a05", "detail": {"tool": "optimize_one_trip"}}
+{"ts": "2026-07-28T20:39:25.798613+00:00", "event": "ce_soir", "profil_id": "74b0c67a-10ae-484c-a814-c5c3cf93d507", "detail": {"recette_id": "b61c0b41-812f-4a45-9802-4a0c99397faf", "type_repas": "diner"}}
+{"ts": "2026-07-28T20:39:25.922920+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-28T20:39:25.949254+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-28T20:39:25.975076+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-28T20:39:25.998355+00:00", "event": "json_parse_fail", "detail": {"preview": "1. Faire cuire le riz.\n2. Ajouter le poulet."}}
+{"ts": "2026-07-28T20:39:26.098011+00:00", "event": "json_parse_ok"}
+{"ts": "2026-07-28T20:40:53.553292+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "fa4a1579-9f89-4dd2-be38-f7c8f1ce35c3", "type_repas": "diner"}}
+{"ts": "2026-07-28T20:40:53.553107+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "fa4a1579-9f89-4dd2-be38-f7c8f1ce35c3", "type_repas": "diner"}}
+{"ts": "2026-07-28T20:43:23.639527+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "fa4a1579-9f89-4dd2-be38-f7c8f1ce35c3", "type_repas": "diner"}}
+{"ts": "2026-07-28T20:43:23.639684+00:00", "event": "ce_soir", "profil_id": "a878ee85-f690-4729-b5a6-28aae8e5aabe", "detail": {"recette_id": "fa4a1579-9f89-4dd2-be38-f7c8f1ce35c3", "type_repas": "diner"}}

@@ -19,7 +19,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { postRepasFeedback } from "@/api/feedback";
+import { ApiError } from "@/api/http";
 import { validerRepas } from "@/api/planning";
+import { postDefiProgress } from "@/api/social";
 import { useHandCoverGesture } from "@/lib/handGesture";
 import { getCachedContext, getCachedRecette } from "@/lib/recipeCache";
 import { recetteVisual } from "@/lib/recipeVisual";
@@ -229,8 +231,19 @@ export default function ModeCuisineScreen() {
     if (context?.repasId && token) {
       try {
         await validerRepas(context.repasId, token);
-      } catch {
-        // pas bloquant : la recette reste marquable "Cuisiné ?" depuis l'écran détail
+        if (profilId) {
+          try {
+            await postDefiProgress(profilId, "fait-maison", token, 1);
+          } catch {
+            /* non bloquant */
+          }
+        }
+        speak("Repas validé. Stock et budget mis à jour.");
+      } catch (e) {
+        const detail =
+          e instanceof ApiError ? e.detail : "Validation impossible — marque-le depuis la recette.";
+        Alert.alert("Validation", detail);
+        speak(detail);
       }
     }
     router.back();

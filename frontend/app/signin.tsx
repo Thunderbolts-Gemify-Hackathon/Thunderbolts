@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import { ApiError } from "@/api/http";
 import { getMonProfilComplet } from "@/api/onboarding";
-import { loginUtilisateur } from "@/api/utilisateur";
+import { loginJwt } from "@/api/utilisateur";
 import { isValidEmail } from "@/lib/validators";
 import { hydrationFromComplet } from "@/onboarding/hydrate";
 import { useOnboarding } from "@/onboarding/store";
@@ -52,13 +52,16 @@ export default function SignInScreen() {
 
     setLoading(true);
     try {
-      const user = await loginUtilisateur({
+      const jwt = await loginJwt({
         email: email.trim().toLowerCase(),
         mot_de_passe: motDePasse,
       });
+      const user = jwt.utilisateur;
       await setSession({
         utilisateurId: user.id,
-        apiToken: user.api_token,
+        apiToken: jwt.api_token || user.api_token,
+        accessToken: jwt.access_token,
+        refreshToken: jwt.refresh_token,
         prenom: user.prenom,
         email: user.email,
       });
@@ -67,7 +70,7 @@ export default function SignInScreen() {
       // dashboard "session incomplète" : sans ça, se reconnecter équivalait
       // à perdre tout son onboarding.
       try {
-        const complet = await getMonProfilComplet(user.api_token);
+        const complet = await getMonProfilComplet(jwt.api_token || user.api_token);
         const { data, sessionPatch, done, resumeStep } = hydrationFromComplet(complet);
         await patchSession(sessionPatch);
         hydrate(data, done, resumeStep);

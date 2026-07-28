@@ -259,6 +259,94 @@ export function buildMarketMapShellHtml(opts: {
       map.fitBounds(zoneCircle.getBounds(), { padding: [30, 30], maxZoom: 15 });
     };
 
+    /**
+     * Mode sortie multi-arrêts : markers numérotés + trajet OSRM home→stop1→stop2…
+     * stops: [{ id, nom, lat, lon, order, label? }]
+     */
+    window.setTripStops = function (stops) {
+      const list = stops || [];
+      clearMarkers();
+      if (route) { map.removeLayer(route); route = null; }
+      points = list.map(function (s) {
+        return {
+          id: s.id,
+          nom: s.nom,
+          lat: s.lat,
+          lon: s.lon,
+          prix: 0,
+          securite: 'sur',
+          recommended: s.order === 1,
+          order: s.order,
+          label: s.label || ''
+        };
+      });
+      focusedId = points[0] && points[0].id || null;
+
+      points.forEach(function (p) {
+        const marker = L.circleMarker([p.lat, p.lon], {
+          radius: 14,
+          color: '#1F3D2B',
+          weight: 3,
+          fillColor: '#C45C26',
+          fillOpacity: 0.95
+        });
+        marker.bindPopup(
+          '<b>#' + (p.order || '') + ' ' + p.nom + '</b>'
+          + (p.label ? '<br/>' + p.label : '')
+        );
+        marker.on('click', function () {
+          post({ type: 'select', id: p.id });
+          focusedId = p.id;
+          restyleMarkers();
+        });
+        markersById[p.id] = marker;
+        marker.addTo(map);
+      });
+
+      const bounds = [[boot.home.lat, boot.home.lon]];
+      points.forEach(function (p) { bounds.push([p.lat, p.lon]); });
+      if (bounds.length > 1) {
+        map.fitBounds(L.latLngBounds(bounds), { padding: [40, 50], maxZoom: 14 });
+      }
+
+      // Ligne immédiate (droite), puis OSRM multi-waypoints
+      const straight = [[boot.home.lat, boot.home.lon]].concat(
+        points.map(function (p) { return [p.lat, p.lon]; })
+      );
+      route = L.polyline(straight, {
+        color: '#C45C26', weight: 3, opacity: 0.45, dashArray: '4 8'
+      }).addTo(map);
+
+      if (!points.length) return;
+      const myRequest = ++routeRequestId;
+      const coordsPath = [boot.home.lon + ',' + boot.home.lat]
+        .concat(points.map(function (p) { return p.lon + ',' + p.lat; }))
+        .join(';');
+      const url = 'https://router.project-osrm.org/route/v1/driving/'
+        + coordsPath + '?overview=full&geometries=geojson';
+      fetch(url)
+        .then(function (res) { return res.json(); })
+        .then(function (json) {
+          if (myRequest !== routeRequestId) return;
+          const r = json && json.routes && json.routes[0];
+          const coords = r && r.geometry && r.geometry.coordinates;
+          if (coords && coords.length > 1) {
+            if (route) map.removeLayer(route);
+            const latlngs = coords.map(function (c) { return [c[1], c[0]]; });
+            route = L.polyline(latlngs, {
+              color: '#C45C26', weight: 5, opacity: 0.9
+            }).addTo(map);
+            post({
+              type: 'route',
+              id: 'trip',
+              distanceM: r.distance,
+              durationS: r.duration
+            });
+          }
+        })
+        .catch(function () { /* garde la ligne pointillée */ });
+    };
+
     window.setHiddenSecurities = function (list) {
       hidden = {};
       (list || []).forEach(function (s) { hidden[s] = true; });

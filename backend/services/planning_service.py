@@ -147,6 +147,7 @@ def valider_repas(db: Session, repas_planifie_id: str) -> RepasPlanifie:
         )
     repas.statut = "consomme"
     cout = _cout_estime_repas(repas)
+    budget_ok = True
     if cout > 0:
         try:
             budget_service.enregistrer_depense(
@@ -160,9 +161,12 @@ def valider_repas(db: Session, repas_planifie_id: str) -> RepasPlanifie:
                 commit=False,
             )
         except HTTPException:
-            pass
+            # Pas de budget configuré : on valide quand même le repas (stock déjà déduit).
+            budget_ok = False
     db.commit()
     db.refresh(repas)
+    # Attribut transient pour le client (non persisté)
+    setattr(repas, "_budget_enregistre", budget_ok)
     return repas
 
 
